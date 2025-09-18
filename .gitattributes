@@ -1,0 +1,20 @@
+# Default: treat text files as text and use LF in the repo & working tree
+* text=auto eol=lf
+
+# Keep Windows script types as CRLF so they run nicely on Windows
+*.ps1  text eol=crlf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# (Optional) Always LF for common texty things
+*.py   text eol=lf
+*.txt  text eol=lf
+*.md   text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+*.js   text eol=lf
+*.json text eol=lf
+*.sql  text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.sh   text eol=lf
