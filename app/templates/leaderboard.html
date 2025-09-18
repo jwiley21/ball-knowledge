@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>Today’s Leaderboard</h2>
+  {% if rows %}
+  <table>
+    <thead><tr><th>#</th><th>User</th><th>Score</th></tr></thead>
+    <tbody>
+      {% for r in rows %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ r.username }}</td>
+          <td>{{ r.score }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p>No scores yet. Be the first!</p>
+  {% endif %}
+{% endblock %}

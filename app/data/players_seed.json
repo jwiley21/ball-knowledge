@@ -1,0 +1,32 @@
+[
+  {
+    "player_slug": "patrick-mahomes",
+    "full_name": "Patrick Mahomes",
+    "position": "QB",
+    "seasons": [
+      {"season": 2018, "team": "KC", "stats": {"Yds": 5097, "TD": 50, "Int": 12}},
+      {"season": 2020, "team": "KC", "stats": {"Yds": 4740, "TD": 38, "Int": 6}},
+      {"season": 2022, "team": "KC", "stats": {"Yds": 5250, "TD": 41, "Int": 12}}
+    ]
+  },
+  {
+    "player_slug": "justin-jefferson",
+    "full_name": "Justin Jefferson",
+    "position": "WR",
+    "seasons": [
+      {"season": 2020, "team": "MIN", "stats": {"Rec": 88, "Yds": 1400, "TD": 7}},
+      {"season": 2021, "team": "MIN", "stats": {"Rec": 108, "Yds": 1616, "TD": 10}},
+      {"season": 2022, "team": "MIN", "stats": {"Rec": 128, "Yds": 1809, "TD": 8}}
+    ]
+  },
+  {
+    "player_slug": "christian-mccaffrey",
+    "full_name": "Christian McCaffrey",
+    "position": "RB",
+    "seasons": [
+      {"season": 2019, "team": "CAR", "stats": {"RushYds": 1387, "RushTD": 15, "Rec": 116}},
+      {"season": 2022, "team": "SF", "stats": {"RushYds": 1139, "RushTD": 8, "Rec": 85}},
+      {"season": 2023, "team": "SF", "stats": {"RushYds": 1459, "RushTD": 14, "Rec": 67}}
+    ]
+  }
+]

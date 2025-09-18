@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+  {% if not username %}
+  <form method="post">
+    <label>Enter a username to track your score:</label>
+    <input name="username" placeholder="e.g., jwiley" required />
+    <button type="submit">Start</button>
+  </form>
+  {% else %}
+    <p>Playing as <strong>{{ username }}</strong></p>
+    <p><em>Position:</em> <strong>{{ player_position }}</strong></p>
+
+    <h3>Revealed season stat lines ({{ revealed }})</h3>
+    <ul>
+      {% for s in stat_lines %}
+        <li>
+          {{ s.season }} — {{ s.team }} —
+          {% for k, v in s.stats.items() %}
+            {{ k }}: {{ v }}{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        </li>
+      {% endfor %}
+    </ul>
+
+    <form method="post" action="{{ url_for('main.guess') }}">
+      <input type="text" name="guess" placeholder="Type player name" autofocus required />
+      <input type="hidden" name="revealed" value="{{ revealed }}" />
+      <button type="submit">Guess</button>
+    </form>
+  {% endif %}
+{% endblock %}
