@@ -1,31 +1,40 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{ APP_NAME }}</title>
+    <title>{% block title %}{{ APP_NAME or "Ball Knowledge" }}{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+    {% block head %}{% endblock %}
   </head>
   <body>
     <header>
-      <h1>{{ APP_NAME }}</h1>
-      <nav>
-        <a href="{{ url_for('main.play') }}">Play</a>
-        <a href="{{ url_for('main.leaderboard') }}">Leaderboard</a>
+      <h1 style="margin: .5rem 0;">
+        <a href="{{ url_for('main.play') }}" style="text-decoration:none; color:inherit;">
+          {{ APP_NAME or "Ball Knowledge" }}
+        </a>
+      </h1>
+      <nav style="display:flex; gap:1rem; align-items:center;">
+        <a href="{{ url_for('main.play') }}"
+           {% if request.endpoint == 'main.play' %}aria-current="page"{% endif %}>Play</a>
+        <a href="{{ url_for('main.leaderboard') }}"
+           {% if request.endpoint == 'main.leaderboard' %}aria-current="page"{% endif %}>Leaderboard</a>
       </nav>
       <hr />
     </header>
 
     {% with messages = get_flashed_messages() %}
-    {% if messages %}
-      <ul class="flash">
-        {% for m in messages %}<li>{{ m }}</li>{% endfor %}
-      </ul>
-    {% endif %}
+      {% if messages %}
+        <ul class="flash">
+          {% for m in messages %}<li>{{ m }}</li>{% endfor %}
+        </ul>
+      {% endif %}
     {% endwith %}
 
     <main>
       {% block content %}{% endblock %}
     </main>
+
+    {% block scripts %}{% endblock %}
   </body>
 </html>

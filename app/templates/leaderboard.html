@@ -1,20 +1,35 @@
 {% extends 'base.html' %}
+{% block title %}Leaderboard — {{ today_label }} · Ball Knowledge{% endblock %}
 {% block content %}
-  <h2>Today’s Leaderboard</h2>
-  {% if rows %}
-  <table>
-    <thead><tr><th>#</th><th>User</th><th>Score</th></tr></thead>
-    <tbody>
-      {% for r in rows %}
+  <h2>Leaderboard — {{ today_label }} (ET)</h2>
+
+  {% if rows and rows|length > 0 %}
+    <table style="width:100%; border-collapse:collapse; margin-top:0.75rem;">
+      <thead>
         <tr>
-          <td>{{ loop.index }}</td>
-          <td>{{ r.username }}</td>
-          <td>{{ r.score }}</td>
+          <th style="text-align:left; padding:.5rem 0;">#</th>
+          <th style="text-align:left; padding:.5rem 0;">User</th>
+          <th style="text-align:right; padding:.5rem 0;">Score</th>
         </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td style="padding:.45rem 0;">{{ loop.index }}</td>
+          <td style="padding:.45rem 0;">{{ r.username }}</td>
+          <td style="padding:.45rem 0; text-align:right;">{{ r.score }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   {% else %}
-    <p>No scores yet. Be the first!</p>
+    <p>No scores yet for {{ today_label }}. Be the first!</p>
   {% endif %}
+
+  <p style="margin-top:1rem;">
+    <a href="{{ url_for('main.play') }}">Back to Play</a>
+  </p>
+
+  {# Debug helper — uncomment if needed #}
+  {# <pre style="opacity:.65; font-size:.9rem;">rows: {{ rows|length }}, today_label: {{ today_label }}</pre> #}
 {% endblock %}
