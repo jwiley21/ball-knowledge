@@ -4,6 +4,9 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 from .services.daily import load_players_local, pick_player_of_day, stat_lines_for_player
 from .services.scoring import compute_score
 from . import supabase
+from flask import current_app
+from datetime import datetime as _dt, timezone as _tz
+
 
 bp = Blueprint("main", __name__)
 
@@ -41,6 +44,8 @@ def play():
         revealed=revealed,
     )
 
+from flask import current_app  # <-- add near other imports
+
 @bp.route("/guess", methods=["POST"])
 def guess():
     username = get_username()
@@ -50,60 +55,66 @@ def guess():
 
     user_guess = request.form.get("guess", "").strip().lower()
 
+    # Daily player (local JSON mode). If you implemented DB daily pick, you can swap this
+    # to use pick_daily_from_db(str(date.today())) + fetch player name from DB.
     today = date.today()
     daily_player = pick_player_of_day(today, PLAYERS)
+
     is_correct = user_guess in {
         daily_player["player_slug"].lower(),
         daily_player["full_name"].lower(),
     }
 
-    # Update revealed count if wrong
     revealed = int(request.form.get("revealed", 1))
     if not is_correct:
-        revealed = min(revealed + 1, 5)  # cap at 5 reveals
+        revealed = min(revealed + 1, 5)
         session["revealed"] = revealed
         flash("Nope! Another season line revealed.")
         return redirect(url_for("main.play"))
 
-    # Correct! compute score and record result
-    session["revealed"] = 1  # reset for tomorrow
+    # Correct path
+    session["revealed"] = 1
     score = compute_score(revealed)
 
-    # If Supabase configured, upsert users/results/streaks; otherwise just show locally
+    # Save to Supabase if configured—but never crash the page if it fails
     if supabase:
-        # upsert user by username
-        user = (
-            supabase.table("users")
-            .upsert({"username": username}, on_conflict="username")
-            .execute()
-        )
-        user_id = user.data[0]["id"]
+        try:
+            user_resp = (
+                supabase.table("users")
+                .upsert({"username": username}, on_conflict="username")
+                .select("id")
+                .execute()
+            )
+            user_id = user_resp.data["id"] if isinstance(user_resp.data, dict) else user_resp.data[0]["id"]
 
-        # upsert result
-        supabase.table("results").upsert(
-            {
-                "game_date": str(today),
-                "user_id": user_id,
-                "revealed": revealed,
-                "score": score,
-                "correct_attempts": revealed,
-            },
-            on_conflict="game_date,user_id",
-        ).execute()
+            supabase.table("results").upsert(
+                {
+                    "game_date": str(today),
+                    "user_id": user_id,
+                    "revealed": revealed,
+                    "score": score,
+                    "correct_attempts": revealed,
+                },
+                on_conflict="game_date,user_id",
+            ).execute()
 
-        # naive streak seed (improve later)
-        from datetime import datetime
-        supabase.table("streaks").upsert(
-            {
-                "user_id": user_id,
-                "current_streak": 1,
-                "best_streak": 1,
-                "updated_at": datetime.utcnow().isoformat() + "Z",
-            },
-            on_conflict="user_id",
-        ).execute()
+            from datetime import datetime as _dt
+            supabase.table("streaks").upsert(
+                {
+                    "user_id": user_id,
+                    "current_streak": 1,
+                    "best_streak": 1,
+                    "updated_at": _dt.now(_tz.utc).isoformat().replace("+00:00", "Z"),
+
+                },
+                on_conflict="user_id",
+            ).execute()
+
+        except Exception:
+            current_app.logger.exception("Supabase save failed during /guess; continuing without DB.")
 
     return render_template("result.html", score=score, answer=daily_player["full_name"])
+
 
 @bp.route("/leaderboard")
 def leaderboard():
