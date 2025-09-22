@@ -4,34 +4,57 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}{{ APP_NAME or "Ball Knowledge" }}{% endblock %}</title>
+
+    <!-- Tailwind from CDN (no custom config so built-in colors always work) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Your minimal overrides (must NOT override body/button globally) -->
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+
+    <!-- Inter font from Google Fonts -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap">
+
+
     {% block head %}{% endblock %}
   </head>
-  <body>
-    <header>
-      <h1 style="margin: .5rem 0;">
-        <a href="{{ url_for('main.play') }}" style="text-decoration:none; color:inherit;">
-          {{ APP_NAME or "Ball Knowledge" }}
-        </a>
-      </h1>
-      <nav style="display:flex; gap:1rem; align-items:center;">
-        <a href="{{ url_for('main.play') }}"
-           {% if request.endpoint == 'main.play' %}aria-current="page"{% endif %}>Play</a>
-        <a href="{{ url_for('main.leaderboard') }}"
-           {% if request.endpoint == 'main.leaderboard' %}aria-current="page"{% endif %}>Leaderboard</a>
-      </nav>
-      <hr />
+  <!-- Global background via Tailwind. Change bg-slate-100 to any Tailwind color (e.g., bg-gray-100, bg-white). -->
+  <body class="min-h-screen bg-sky-100 text-slate-900">
+    <header class="max-w-3xl mx-auto px-4 py-6">
+      <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold">
+          <a href="{{ url_for('main.play') }}" class="hover:opacity-80">
+            {{ APP_NAME or "Ball Knowledge" }}
+          </a>
+        </h1>
+        <nav class="flex gap-4">
+          <a
+            href="{{ url_for('main.play') }}"
+            class="px-2 py-1 rounded hover:underline {% if request.endpoint == 'main.play' %}font-semibold{% endif %}"
+          >Play</a>
+          <a
+            href="{{ url_for('main.leaderboard') }}"
+            class="px-2 py-1 rounded hover:underline {% if request.endpoint == 'main.leaderboard' %}font-semibold{% endif %}"
+          >Leaderboard</a>
+          <a
+            href="{{ url_for('main.all_time') }}"
+            class="px-2 py-1 rounded hover:underline {% if request.endpoint == 'main.all_time' %}font-semibold{% endif %}"
+          >All-Time</a>
+        </nav>
+      </div>
+      <hr class="mt-4 border-slate-200" />
     </header>
 
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <ul class="flash">
-          {% for m in messages %}<li>{{ m }}</li>{% endfor %}
-        </ul>
-      {% endif %}
-    {% endwith %}
+    <main class="max-w-3xl mx-auto px-4 pb-12">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="mb-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-900 px-4 py-3">
+            <ul class="list-disc ml-5">
+              {% for m in messages %}<li>{{ m }}</li>{% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+      {% endwith %}
 
-    <main>
       {% block content %}{% endblock %}
     </main>
 
