@@ -1,12 +1,9 @@
 {% extends 'base.html' %}
-{% block title %}Leaderboard · {{ APP_NAME or "Ball Knowledge" }}{% endblock %}
+{% block title %}All-Time Leaderboard · {{ APP_NAME or "Ball Knowledge" }}{% endblock %}
 
 {% block content %}
   <section class="bg-white border border-slate-200 rounded-xl shadow-card p-5">
-    <h2 class="text-xl font-semibold mb-1">Today’s Leaderboard</h2>
-    <p class="text-slate-600 mb-4 text-sm">
-      Eastern Time: <span class="font-medium">{{ today_label }}</span>
-    </p>
+    <h2 class="text-xl font-semibold mb-4">All-Time Leaderboard</h2>
 
     {% if rows and rows|length > 0 %}
       <div class="overflow-x-auto">
@@ -15,7 +12,7 @@
             <tr class="text-left border-b border-slate-200">
               <th class="py-2 pr-3">#</th>
               <th class="py-2 pr-3">User</th>
-              <th class="py-2 pr-3 text-right">Score</th>
+              <th class="py-2 pr-3 text-right">Total Score</th>
             </tr>
           </thead>
           <tbody>
@@ -23,7 +20,7 @@
               <tr class="border-b border-slate-100 hover:bg-slate-50">
                 <td class="py-2 pr-3">{{ loop.index }}</td>
                 <td class="py-2 pr-3">{{ r.username }}</td>
-                <td class="py-2 pr-3 text-right font-medium">{{ r.score }}</td>
+                <td class="py-2 pr-3 text-right font-medium">{{ r.total_score }}</td>
               </tr>
             {% endfor %}
           </tbody>

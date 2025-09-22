@@ -1,17 +1,81 @@
 from datetime import date
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify
 from .services.daily import load_players_local, pick_player_of_day, stat_lines_for_player
-from .services.scoring import compute_score
+from .services.scoring import compute_score,compute_total_score, HINT_COSTS
 from . import supabase, get_today_et
 from flask import current_app
 from datetime import datetime as _dt, timezone as _tz
 from difflib import get_close_matches
+from .services.hints import resolve_hint_values
+# Use an alias so we never shadow it accidentally
+from .services.hints import resolve_hint_values as hints_resolve
+from .services.match import is_typo_match, suggest_players
+
+
+from .services.scoring import (
+    START_SCORE,
+    PENALTY_PER_REVEAL,
+    HINT_COSTS,
+    compute_score,
+    compute_total_score,
+)
+
+# Check if the current username has already recorded a result today
+def has_played_today(username: str) -> bool:
+    if not username:
+        return False
+    today_et = str(get_today_et())
+    # DB path
+    if supabase:
+        try:
+            u = supabase.table("users").select("id").eq("username", username).maybe_single().execute()
+            data = getattr(u, "data", None)
+            uid = (data or {}).get("id") if isinstance(data, dict) else None
+            if not uid:
+                return False
+            r = (supabase.table("results")
+                 .select("user_id")
+                 .eq("user_id", uid)
+                 .eq("game_date", today_et)
+                 .maybe_single()
+                 .execute())
+            return bool(getattr(r, "data", None))
+        except Exception:
+            current_app.logger.exception("has_played_today failed; falling back to session flag")
+            return bool(session.get("solved_today"))
+    # Local/session fallback
+    return bool(session.get("solved_today"))
+
 
 
 bp = Blueprint("main", __name__)
 
 # In-memory cache for local mode
 PLAYERS = load_players_local()
+
+# Cached list of (full_name, position) for suggestions
+_SUGGEST_CACHE: list[tuple[str, str]] | None = None
+
+def _get_suggest_population() -> list[tuple[str, str]]:
+    global _SUGGEST_CACHE
+    if _SUGGEST_CACHE is not None:
+        return _SUGGEST_CACHE
+
+    out: list[tuple[str, str]] = []
+    if supabase:
+        try:
+            resp = supabase.table("players").select("full_name, position").execute()
+            rows = getattr(resp, "data", []) or []
+            out = [(r["full_name"], r.get("position") or "") for r in rows if r.get("full_name")]
+        except Exception:
+            current_app.logger.exception("Failed to build suggestion population from DB; falling back to JSON")
+    if not out:
+        # local JSON fallback
+        for p in PLAYERS or []:
+            out.append((p.get("full_name", ""), p.get("position", "")))
+    _SUGGEST_CACHE = out
+    return out
+
 
 def _db_player_bundle(today_str: str) -> dict:
     """Return today's player & stat lines from Supabase. Creates daily row if missing."""
@@ -97,131 +161,233 @@ def get_today_player_bundle() -> dict:
         "stat_lines": stat_lines_for_player(p),
     }
 
+
+
+
+
+
 def get_username() -> str | None:
     return session.get("username")
+
 
 @bp.route("/", methods=["GET", "POST"])
 @bp.route("/play", methods=["GET", "POST"])
 def play():
+    # Reset daily state on new ET day (do NOT clear username; we keep it locked)
+    today_et = str(get_today_et())
+    if session.get("last_game_date") != today_et:
+        session["last_game_date"] = today_et
+        session["revealed"] = 1
+        session["hints_used"] = []
+        session.pop("suggestions", None)
+        # Do not reset username or username_locked here
+
+    # Username submit: only allow if username is not already set
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        if username:
-            session["username"] = username
+        proposed = (request.form.get("username") or "").strip()
+        if proposed:
+            if session.get("username"):
+                flash("Username is locked for this browser.")
+            else:
+                session["username"] = proposed
+                session["username_locked"] = True
             return redirect(url_for("main.play"))
 
     username = session.get("username")
+    username_locked = bool(session.get("username_locked"))
 
-    # unified daily bundle (DB + ET or JSON)
+    # Determine if this user has already finished today
+    already_played_today = has_played_today(username or "")
+
+    # Get bundle and lines
     bundle = get_today_player_bundle()
+    lines = bundle.get("stat_lines") or []
 
-    # Track how many lines are revealed in session
-    revealed = session.get("revealed", 1)
-    revealed = max(1, min(revealed, len(bundle["stat_lines"])))
+    # Reveal count clamp
+    revealed = int(session.get("revealed", 1) or 1)
+    if lines:
+        revealed = max(1, min(revealed, len(lines)))
+    else:
+        revealed = 1
+
+    # Normalize hints_used
+    hints_used = [str(h).lower() for h in session.get("hints_used", [])]
+    available_hints = [h for h in HINT_COSTS.keys() if h not in hints_used]
+
+    # Build per-line hints for revealed lines
+    hints_for_lines = []
+    for i in range(revealed):
+        try:
+            hv = hints_resolve(bundle, i)
+        except Exception:
+            current_app.logger.exception("resolve_hint_values failed at line %s", i)
+            hv = {}
+        hints_for_lines.append(hv)
+
+    # Suggestions from the last wrong-but-close guess
+    suggestions = session.pop("suggestions", [])
+
+    # Compute live score
+    live_score = compute_total_score(revealed, hints_used)
 
     return render_template(
         "play.html",
         username=username,
-        player_position=bundle["position"],
-        stat_lines=bundle["stat_lines"][:revealed],
+        username_locked=username_locked,
+        already_played_today=already_played_today,
+
+        player_position=bundle.get("position", ""),
+        stat_lines=lines[:revealed],
         revealed=revealed,
+
+        hints_for_lines=hints_for_lines,
+        hints_used=hints_used,
+        available_hints=available_hints,
+        hint_costs=HINT_COSTS,
+
+        suggestions=suggestions,
+
+        live_score=live_score,
+        start_score=START_SCORE,
+        penalty_per_reveal=PENALTY_PER_REVEAL,
     )
 
 
-@bp.route("/guess", methods=["POST"])
+
+
+   
+
+
+
+
+
+
+
+@bp.post("/guess")
 def guess():
     username = session.get("username")
     if not username:
         flash("Enter a username first.")
         return redirect(url_for("main.play"))
 
-    user_guess = request.form.get("guess", "").strip().lower()
-    revealed = int(request.form.get("revealed", 1))
+    # If today's game already completed for this username: block further guesses
+    if has_played_today(username):
+        flash("You've already completed today's game. Come back tomorrow!")
+        return redirect(url_for("main.play"))
 
-    # Same source of truth as /play (DB + ET; JSON fallback)
+    user_guess_raw = (request.form.get("guess") or "").strip()
+    user_guess = user_guess_raw.lower()
+    revealed = int(request.form.get("revealed", 1) or 1)
+    from_suggestion = (request.form.get("from_suggestion") == "1")
+
     bundle = get_today_player_bundle()
 
+    # Exact/slug candidates
     candidates = {
         bundle["full_name"].lower(),
         bundle["player_slug"].replace("-", " ").lower(),
     }
-    # fuzzy matching helps minor typos; tune cutoff as you like
-    is_correct = (
-        user_guess in candidates
-        or bool(get_close_matches(user_guess, list(candidates), n=1, cutoff=0.88))
-    )
 
-    if not is_correct:
-        revealed = min(revealed + 1, 5)  # cap at 5 reveals
-        session["revealed"] = revealed
-        flash("Nope! Another season line revealed.")
+    # Typo forgiveness
+    correct_via_typo = is_typo_match(user_guess_raw, bundle["full_name"])
+    is_correct = (user_guess in candidates) or correct_via_typo
+
+    # ----- Correct -> count & finish ------------------------------------------
+    if is_correct:
+        hints_used = session.get("hints_used", [])
+        score = compute_total_score(revealed, hints_used)
+
+        # Persist to DB
+        if supabase and bundle.get("id"):
+            try:
+                sel = supabase.table("users").select("id").eq("username", username).maybe_single().execute()
+                user_row = getattr(sel, "data", None)
+                if not user_row:
+                    supabase.table("users").insert({"username": username}).execute()
+                    sel2 = supabase.table("users").select("id").eq("username", username).maybe_single().execute()
+                    user_row = getattr(sel2, "data", None)
+                user_id = user_row["id"] if user_row else None
+                if user_id is not None:
+                    supabase.table("results").upsert(
+                        {
+                            "game_date": str(get_today_et()),
+                            "user_id": int(user_id),
+                            "revealed": int(revealed),
+                            "score": int(score),
+                            "correct_attempts": int(revealed),
+                        },
+                        on_conflict="game_date,user_id",
+                    ).execute()
+            except Exception:
+                current_app.logger.exception("Supabase save failed during /guess; continuing without DB.")
+
+        # Mark as solved in session (helps local mode)
+        session["solved_today"] = True
+        # Reset per-game UI bits
+        session["revealed"] = 1
+        session["hints_used"] = []
+        session.pop("suggestions", None)
+
+        return render_template("result.html", score=score, answer=bundle["full_name"])
+
+    # ----- Wrong ---------------------------------------------------------------
+    # Build suggestions (prefer same position)
+    population = _get_suggest_population()
+    same_pos = [(n, pos) for (n, pos) in population if pos == bundle.get("position")]
+    pool = same_pos if same_pos else population
+    suggestions = suggest_players(user_guess_raw, pool, limit=4, min_score=80)
+
+    # If suggestions exist and this is NOT from a suggestion button:
+    # show suggestions and DO NOT count this try (no reveal increment).
+    if suggestions and not from_suggestion:
+        session["suggestions"] = suggestions
+        flash("Not quite — did you mean one of these? (This try didn’t count.)")
         return redirect(url_for("main.play"))
 
-    # Correct!
-    session["revealed"] = 1
-    score = compute_score(revealed)
-    today_et = str(get_today_et())
-
-    # Save to Supabase if configured and we have a DB player id
-    if supabase:
-        try:
-            # 1) Ensure user exists (Python client doesn’t support .select after .upsert)
-            supabase.table("users").upsert({"username": username}, on_conflict="username").execute()
-
-            # 2) Fetch id in a separate query
-            user_row = (
-                supabase.table("users")
-                .select("id")
-                .eq("username", username)
-                .single()
-                .execute()
-            )
-            user_id = user_row.data["id"]
+    # Otherwise: this wrong try counts (either clicked suggestion but wrong, or no suggestions)
+    if suggestions:
+        session["suggestions"] = suggestions  # still show them
+    revealed = min(revealed + 1, 5)
+    session["revealed"] = revealed
+    flash("Nope! Another season line revealed.")
+    return redirect(url_for("main.play"))
 
 
-            supabase.table("results").upsert(
-                {
-                    "game_date": today_et,            # ET date (key for leaderboard)
-                    "user_id": user_id,
-                    "revealed": revealed,
-                    "score": score,
-                    "correct_attempts": revealed,
-                },
-                on_conflict="game_date,user_id",
-            ).execute()
+@bp.post("/hint")
+def hint():
+    # Keep revealed in sync when you click a hint button
+    revealed = int(request.form.get("revealed", 1) or 1)
+    session["revealed"] = revealed
 
-            supabase.table("streaks").upsert(
-                {
-                    "user_id": user_id,
-                    "current_streak": 1,
-                    "best_streak": 1,
-                    "updated_at": _dt.now(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                },
-                on_conflict="user_id",
-            ).execute()
+    # Normalize the posted hint type to lowercase
+    kind = (request.form.get("hint_type") or "").strip().lower()
+    if not kind or kind not in HINT_COSTS:
+        flash("Unknown hint.")
+        return redirect(url_for("main.play"))
 
-        except Exception:
-            current_app.logger.exception("Supabase save failed during /guess; continuing without DB.")
+    # Always store lowercase in session
+    current = session.get("hints_used", [])
+    hints_used = {str(h).lower() for h in current}
+    if kind not in hints_used:
+        hints_used.add(kind)
+        session["hints_used"] = list(hints_used)
 
-    return render_template("result.html", score=score, answer=bundle["full_name"])
+    return redirect(url_for("main.play"))
+
 
 
 
 @bp.route("/leaderboard")
 def leaderboard():
-    # Show today's ET leaderboard and fetch rows for the same ET date we save on /guess
     rows = []
+    today_et = str(get_today_et())
+    today_label = today_et
 
-    # Compute ET "today" for querying AND a friendly string for the header
-    today_obj = get_today_et()                      # datetime.date (America/New_York)
-    today_et = str(today_obj)                       # "YYYY-MM-DD" for DB queries
-    today_label = today_obj.strftime("%B %d, %Y")   # e.g., "September 19, 2025"
-
-    # If Supabase isn't configured, render an empty state with the date label
     if not supabase:
         return render_template("leaderboard.html", rows=rows, today_label=today_label)
 
     try:
-        # 1) Get today's scores (ET) without a join
+        # Fetch today's results, highest score first
         res = (
             supabase.table("results")
             .select("score, user_id")
@@ -230,33 +396,61 @@ def leaderboard():
             .limit(50)
             .execute()
         )
-        data = res.data or []
+        data = getattr(res, "data", None) or []
         if not data:
             return render_template("leaderboard.html", rows=rows, today_label=today_label)
 
-        # 2) Fetch usernames for all user_ids in one query
-        user_ids = list({r.get("user_id") for r in data if r.get("user_id")})
+        user_ids = sorted({r["user_id"] for r in data if "user_id" in r and r["user_id"] is not None})
         id_to_name = {}
         if user_ids:
-            ures = (
-                supabase.table("users")
-                .select("id, username")
-                .in_("id", user_ids)
-                .execute()
-            )
-            id_to_name = {u["id"]: u["username"] for u in (ures.data or [])}
+            ures = supabase.table("users").select("id, username").in_("id", user_ids).execute()
+            id_to_name = {u["id"]: u["username"] for u in (getattr(ures, "data", None) or [])}
 
-        # 3) Shape rows for the template
         rows = [
             {"username": id_to_name.get(r["user_id"], "unknown"), "score": r["score"]}
             for r in data
         ]
-
     except Exception:
-        # Never crash the page—log and fall back to empty rows
         current_app.logger.exception("Leaderboard query failed")
 
     return render_template("leaderboard.html", rows=rows, today_label=today_label)
+
+
+
+@bp.route("/leaderboard/all-time")
+def all_time():
+    rows = []
+    if not supabase:
+        return render_template("all_time.html", rows=rows)
+
+    try:
+        res = supabase.table("results").select("user_id,score").execute()
+        data = getattr(res, "data", None) or []
+        if not data:
+            return render_template("all_time.html", rows=rows)
+
+        from collections import defaultdict
+        agg = defaultdict(int)
+        for r in data:
+            uid = r.get("user_id")
+            s = r.get("score") or 0
+            if uid:
+                agg[uid] += s
+
+        user_ids = list(agg.keys())
+        id_to_name = {}
+        if user_ids:
+            ures = supabase.table("users").select("id, username").in_("id", user_ids).execute()
+            id_to_name = {u["id"]: u["username"] for u in (getattr(ures, "data", None) or [])}
+
+        rows = sorted(
+            [{"username": id_to_name.get(uid, "unknown"), "total_score": total} for uid, total in agg.items()],
+            key=lambda x: x["total_score"], reverse=True
+        )
+    except Exception:
+        current_app.logger.exception("All-time leaderboard query failed")
+
+    return render_template("all_time.html", rows=rows)
 
 
 @bp.route("/health")
@@ -302,3 +496,24 @@ def debug():
         info["save_probe_error"] = str(e)
 
     return info
+
+@bp.get("/debug-hints")
+def debug_hints():
+    bundle = get_today_player_bundle()
+    lines = bundle.get("stat_lines") or []
+    out = []
+    from .services.hints import canon, resolve_hint_values
+    for i, line in enumerate(lines):
+        raw_team = line.get("team")
+        hv = resolve_hint_values(bundle, i)
+        out.append({
+            "i": i,
+            "season": line.get("season"),
+            "raw_team": raw_team,
+            "canon_team": canon(raw_team),
+            "conference": hv.get("conference"),
+            "division": hv.get("division"),
+            "record": hv.get("record"),
+        })
+    return {"player": bundle.get("full_name"), "lines": out}
+

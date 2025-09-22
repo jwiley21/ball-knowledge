@@ -1,8 +1,16 @@
-body { max-width: 720px; margin: 2rem auto; font-family: system-ui, Arial, sans-serif; }
-header h1 { margin: 0 0 .25rem; }
-nav a { margin-right: 1rem; }
-ul.flash { background: #fff7d6; padding: .5rem .75rem; border-radius: .5rem; }
-button { padding: .4rem .8rem; }
-input { padding: .35rem .5rem; }
+/* static/styles.css
+   Minimal, Tailwind-friendly. Do NOT override body/button globally.
+*/
+
+/* Optional: table fallback */
 table { border-collapse: collapse; width: 100%; }
-th, td { border-bottom: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+th, td { border-bottom: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }
+
+/* Accessibility: nicer keyboard focus fallback if Tailwind isn't present */
+:focus-visible {
+  outline: 2px solid #4f46e5; /* indigo-600 */
+  outline-offset: 2px;
+}
+
+body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+

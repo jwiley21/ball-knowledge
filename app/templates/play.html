@@ -1,31 +1,255 @@
 {% extends 'base.html' %}
+{% block title %}Play · {{ APP_NAME or "Ball Knowledge" }}{% endblock %}
+
 {% block content %}
-  {% if not username %}
-  <form method="post">
-    <label>Enter a username to track your score:</label>
-    <input name="username" placeholder="e.g., jwiley" required />
-    <button type="submit">Start</button>
-  </form>
-  {% else %}
-    <p>Playing as <strong>{{ username }}</strong></p>
-    <p><em>Position:</em> <strong>{{ player_position }}</strong></p>
 
-    <h3>Revealed season stat lines ({{ revealed }})</h3>
-    <ul>
-      {% for s in stat_lines %}
-        <li>
-          {{ s.season }} — {{ s.team }} —
-          {% for k, v in s.stats.items() %}
-            {{ k }}: {{ v }}{% if not loop.last %}, {% endif %}
-          {% endfor %}
-        </li>
-      {% endfor %}
-    </ul>
+  <!-- Username card -->
+  <section class="mb-6">
+    <div class="bg-white border border-slate-200 rounded-xl shadow p-5">
+      {% if not username %}
+        <h2 class="text-lg font-semibold mb-3">Enter your username</h2>
+        <form method="post" action="{{ url_for('main.play') }}" class="flex flex-col sm:flex-row gap-3">
+          <input
+            type="text"
+            name="username"
+            required
+            placeholder="e.g. jwiley21"
+            class="w-full sm:flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600"
+          />
+          <button
+            type="submit"
+            class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+          >
+            Save
+          </button>
+        </form>
+      {% else %}
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="inline-flex items-center gap-2 rounded-full bg-indigo-50 text-indigo-700 px-3 py-1 text-sm border border-indigo-100">
+            <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M10 2a8 8 0 100 16 8 8 0 000-16Zm1 11H9V9h2v4Zm0-6H9V5h2v2Z"/></svg>
+            {{ username }}
+          </span>
+          {% if username_locked %}
+            <span class="text-xs text-slate-500">Username is locked for this browser.</span>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </section>
 
-    <form method="post" action="{{ url_for('main.guess') }}">
-      <input type="text" name="guess" placeholder="Type player name" autofocus required />
-      <input type="hidden" name="revealed" value="{{ revealed }}" />
-      <button type="submit">Guess</button>
-    </form>
-  {% endif %}
+  <!-- Prompt card -->
+  <section class="mb-6">
+    <div class="bg-white border border-slate-200 rounded-xl shadow p-5">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold">Who am I?</h2>
+          <p class="text-slate-600 mt-1">
+            Position:
+            <span class="font-medium text-slate-800">{{ player_position }}</span>
+          </p>
+        </div>
+        <!-- Live Score pill -->
+        <div
+          id="liveScorePill"
+          class="ml-4 shrink-0 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-800 text-sm"
+          data-start="{{ start_score }}"
+          data-penalty="{{ penalty_per_reveal }}"
+          data-revealed="{{ revealed }}"
+          data-hints='{{ hints_used | tojson }}'
+          data-hintcosts='{{ hint_costs | tojson }}'
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+            <path d="M10 2a8 8 0 100 16 8 8 0 000-16Zm1 5a1 1 0 10-2 0v3.586l-1.293 1.293a1 1 0 101.414 1.414l1.586-1.586A2 2 0 0011 10V7Z"/>
+          </svg>
+          <span class="font-medium">Score:</span>
+          <span id="liveScoreValue" class="font-bold">{{ live_score }}</span>
+        </div>
+      </div>
+
+      <!-- Revealed stat lines + inline hints per season -->
+      <div class="mt-4 grid gap-3">
+        {% for line in stat_lines %}
+          {% set hv = (hints_for_lines[loop.index0] if hints_for_lines and loop.index0 < hints_for_lines|length else {}) %}
+          <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+            <div class="font-semibold flex items-center justify-between">
+              <span>Season {{ line.season }}</span>
+            </div>
+
+            <div class="text-sm text-slate-700 mt-1">
+              {% for k, v in line.stats.items() %}
+                <span class="inline-block mr-3">
+                  <span class="text-slate-500">{{ k }}:</span>
+                  <span class="font-medium">{{ v }}</span>
+                </span>
+              {% endfor %}
+            </div>
+
+            <!-- Inline hints for THIS season -->
+            <div class="mt-2 text-xs text-slate-600 flex flex-wrap gap-x-4 gap-y-1">
+              <span>
+                <span class="text-slate-500">Team:</span>
+                {% if 'team' in hints_used %}
+                  <span class="font-medium">{{ hv.team or '—' }}</span>
+                {% else %}
+                  <span class="italic">hidden</span>
+                {% endif %}
+              </span>
+              <span>
+                <span class="text-slate-500">Conference:</span>
+                {% if 'conference' in hints_used or 'division' in hints_used %}
+                  <span class="font-medium">{{ hv.conference or '—' }}</span>
+                {% else %}
+                  <span class="italic">hidden</span>
+                {% endif %}
+              </span>
+              <span>
+                <span class="text-slate-500">Division:</span>
+                {% if 'division' in hints_used %}
+                  {% if hv.conference and hv.division %}
+                    <span class="font-medium">{{ hv.conference | upper }} {{ hv.division }}</span>
+                  {% elif hv.division %}
+                    <span class="font-medium">{{ hv.division }}</span>
+                  {% else %}
+                    <span class="font-medium">—</span>
+                  {% endif %}
+                {% else %}
+                  <span class="italic">hidden</span>
+                {% endif %}
+              </span>
+              <span>
+                <span class="text-slate-500">Record:</span>
+                {% if 'record' in hints_used %}
+                  <span class="font-medium">{{ hv.record or '—' }}</span>
+                {% else %}
+                  <span class="italic">hidden</span>
+                {% endif %}
+              </span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <!-- Hints + Guess row -->
+  <section class="grid md:grid-cols-2 gap-6">
+
+    <!-- Hints card -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow p-5">
+      <h3 class="font-semibold">Hints</h3>
+      {% if already_played_today %}
+        <p class="text-sm text-slate-600 mt-1">You’ve already completed today’s game.</p>
+      {% else %}
+        <p class="text-xs text-slate-500 mb-2">Hints apply to every revealed season line.</p>
+        {% if available_hints and available_hints|length > 0 %}
+          <form method="post" action="{{ url_for('main.hint') }}" class="flex flex-wrap gap-2">
+            <input type="hidden" name="revealed" value="{{ revealed }}" />
+            {% for h in available_hints %}
+              {% if not ('division' in hints_used and h == 'conference') %}
+                <button
+                  name="hint_type"
+                  value="{{ h }}"
+                  type="submit"
+                  class="inline-flex items-center justify-center rounded-lg bg-white border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-900 shadow hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                >
+                  {% if h == 'division' %}Division (incl. Conf){% else %}{{ h|capitalize }}{% endif %}
+                  <span class="ml-1 text-slate-500">(-{{ hint_costs[h] }})</span>
+                </button>
+              {% endif %}
+            {% endfor %}
+          </form>
+        {% else %}
+          <p class="text-sm text-slate-600">No more hints available.</p>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <!-- Guess card -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow p-5">
+      <h3 class="font-semibold mb-3">Your Guess</h3>
+
+      {% if already_played_today %}
+        <div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 p-3 text-sm">
+          You’ve already completed today’s challenge as <strong>{{ username }}</strong>. Come back tomorrow!
+        </div>
+      {% else %}
+        <form method="post" action="{{ url_for('main.guess') }}" class="grid gap-3">
+          <input type="hidden" name="revealed" value="{{ revealed }}" />
+          <input
+            type="text"
+            name="guess"
+            required
+            placeholder="Type the player's name..."
+            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600"
+          />
+          <button
+            type="submit"
+            class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+          >
+            Submit Guess
+          </button>
+          <p class="text-xs text-slate-500">Wrong guesses reveal another season line (max 5) and reduce your score.</p>
+        </form>
+
+        {% if suggestions and suggestions|length > 0 %}
+          <div class="mt-3">
+            <p class="text-sm text-slate-700 mb-2">
+              Did you mean:
+              <span class="text-slate-500">(choosing a suggestion will count as your next guess)</span>
+            </p>
+            <div class="flex flex-wrap gap-2">
+              {% for s in suggestions %}
+                <form method="post" action="{{ url_for('main.guess') }}">
+                  <input type="hidden" name="revealed" value="{{ revealed }}">
+                  <input type="hidden" name="guess" value="{{ s }}">
+                  <input type="hidden" name="from_suggestion" value="1">
+                  <button
+                    type="submit"
+                    class="inline-flex items-center justify-center rounded-full bg-white border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-900 shadow hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                    title="Try {{ s }}"
+                  >
+                    {{ s }}
+                  </button>
+                </form>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      {% endif %}
+    </div>
+
+  </section>
+
+  <script>
+    (function () {
+      function calcScore(start, perReveal, revealed, hints, hintCosts) {
+        const r = Math.max(1, Number(revealed) || 1);
+        let base = Number(start) - Number(perReveal) * (r - 1);
+        const seen = new Set();
+        let hp = 0;
+        (hints || []).forEach(h => {
+          const key = (String(h || '')).toLowerCase().trim();
+          if (!key || seen.has(key)) return;
+          seen.add(key);
+          hp += Number(hintCosts[key] || 0);
+        });
+        return Math.max(0, Math.floor(base - hp));
+      }
+
+      const pill = document.getElementById('liveScorePill');
+      const out  = document.getElementById('liveScoreValue');
+      if (!pill || !out) return;
+
+      const start    = Number(pill.dataset.start || 100);
+      const perRev   = Number(pill.dataset.penalty || 20);
+      const revealed = Number(pill.dataset.revealed || 1);
+      let hints      = [];
+      let costs      = {};
+      try { hints = JSON.parse(pill.dataset.hints || '[]'); } catch {}
+      try { costs = JSON.parse(pill.dataset.hintcosts || '{}'); } catch {}
+
+      out.textContent = calcScore(start, perRev, revealed, hints, costs);
+    })();
+  </script>
+
 {% endblock %}
