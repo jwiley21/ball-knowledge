@@ -7,13 +7,13 @@
   <section class="mb-6">
     <div class="bg-white border border-slate-200 rounded-xl shadow p-5">
       {% if not username %}
-        <h2 class="text-lg font-semibold mb-3">Enter your username</h2>
+        <h2 class="text-lg font-semibold mb-3">Enter your display name (display name will be locked for this browser)</h2>
         <form method="post" action="{{ url_for('main.play') }}" class="flex flex-col sm:flex-row gap-3">
           <input
             type="text"
             name="username"
             required
-            placeholder="e.g. jwiley21"
+            placeholder="e.g. Nick Chubb or Mgarret"
             class="w-full sm:flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600"
           />
           <button
@@ -30,7 +30,7 @@
             {{ username }}
           </span>
           {% if username_locked %}
-            <span class="text-xs text-slate-500">Username is locked for this browser.</span>
+            <span class="text-xs text-slate-500">Name is locked for this browser.</span>
           {% endif %}
         </div>
       {% endif %}
