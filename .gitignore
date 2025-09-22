@@ -1,6 +1,17 @@
-.venv/
+# Python
 __pycache__/
 *.pyc
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Local env files
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example  # keep the example checked in
+
+# Editors
+.vscode/
+.idea/
