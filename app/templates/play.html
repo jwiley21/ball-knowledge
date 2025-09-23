@@ -41,13 +41,27 @@
   <section class="mb-6">
     <div class="bg-white border border-slate-200 rounded-xl shadow p-5">
       <div class="flex items-center justify-between">
+        
         <div>
-          <h2 class="text-lg font-semibold">Who am I?</h2>
-          <p class="text-slate-600 mt-1">
-            Position:
-            <span class="font-medium text-slate-800">{{ player_position }}</span>
-          </p>
-        </div>
+            <h2 class="text-lg font-semibold">Who am I?</h2>
+            <p class="text-slate-600 mt-1">
+              Position:
+              <span class="font-medium text-slate-800">{{ player_position }}</span>
+            </p>
+
+            {# Get the resolver output for the first revealed line so we can read player-level hints like college #}
+            {% set hv0 = (hints_for_lines[0] if hints_for_lines and hints_for_lines|length > 0 else {}) %}
+
+            <p class="text-slate-600 mt-1">
+              College:
+              {% if 'college' in hints_used %}
+                <span class="font-medium text-slate-800">{{ hv0.college or '—' }}</span>
+              {% else %}
+                <span class="italic">hidden</span>
+              {% endif %}
+            </p>
+          </div>
+
         <!-- Live Score pill -->
         <div
           id="liveScorePill"
@@ -125,7 +139,8 @@
                 {% endif %}
               </span>
             </div>
-          </div>
+
+            </div>
         {% endfor %}
       </div>
     </div>

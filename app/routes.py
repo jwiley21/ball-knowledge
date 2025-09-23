@@ -100,10 +100,10 @@ def _db_player_bundle(today_str: str) -> dict:
         pid = random.choice(pids)
         supabase.table("daily_game").upsert({"game_date": today_str, "player_id": pid}).execute()
 
-    # 3) Fetch player meta
+    # 3) Fetch player meta (INCLUDE college)
     meta = (
         supabase.table("players")
-        .select("id,full_name,player_slug,position")
+        .select("id,full_name,player_slug,position,college")
         .eq("id", pid)
         .limit(1)
         .execute()
@@ -112,6 +112,7 @@ def _db_player_bundle(today_str: str) -> dict:
     if not mdata:
         raise RuntimeError(f"Player id {pid} not found in players table.")
     player_meta = mdata[0]
+    college = (player_meta.get("college") or "").strip() or None
 
     # 4) Fetch seasons and adapt to template shape
     sresp = (
@@ -137,8 +138,10 @@ def _db_player_bundle(today_str: str) -> dict:
         "full_name": player_meta["full_name"],
         "player_slug": player_meta["player_slug"],
         "position": player_meta["position"],
+        "college": college,            # <-- now included
         "stat_lines": stat_lines,
     }
+
 
 
 def get_today_player_bundle() -> dict:
@@ -365,7 +368,7 @@ def hint():
         flash("Unknown hint.")
         return redirect(url_for("main.play"))
 
-    # Always store lowercase in session
+    # Record single purchase per hint kind (global per game)
     current = session.get("hints_used", [])
     hints_used = {str(h).lower() for h in current}
     if kind not in hints_used:
@@ -373,6 +376,8 @@ def hint():
         session["hints_used"] = list(hints_used)
 
     return redirect(url_for("main.play"))
+
+
 
 
 

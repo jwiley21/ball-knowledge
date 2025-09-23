@@ -5,14 +5,15 @@ from typing import Iterable
 
 # Base scoring knobs
 START_SCORE = 100
-PENALTY_PER_REVEAL = 20  # lose 20 points per extra stat line revealed (beyond the first)
+PENALTY_PER_REVEAL = 10  # lose 10 points per extra stat line revealed (beyond the first)
 
 # Hint costs (all keys MUST be lowercase and match what the UI uses)
 HINT_COSTS = {
-    "team": 10,
-    "division": 8,
-    "conference": 5,
-    "record": 12,
+    "team": 15,
+    "division": 10,
+    "conference": 8,
+    "record": 8,
+    "college": 20,
 }
 
 def compute_score(revealed: int) -> int:

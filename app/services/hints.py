@@ -79,12 +79,16 @@ def resolve_hint_values(bundle: dict, line_idx: int) -> dict:
     """
     Compute hint values for the currently revealed season line.
     Returns keys: season, team (canonical), conference, division, record (may be None).
+    Also includes player-level 'college' when available (supports bundle['college']
+    or bundle['player']['college']).
     """
     lines = bundle.get("stat_lines") or []
     if not lines:
         return {}
+
     idx = max(0, min(line_idx, len(lines) - 1))
     line = lines[idx]
+
     season = line.get("season")
     raw_team = line.get("team")
     team = canon(raw_team)
@@ -95,10 +99,22 @@ def resolve_hint_values(bundle: dict, line_idx: int) -> dict:
 
     record = _get_team_record(int(season), team) if (season and team) else None
 
-    return {
+    result = {
         "season": season,
         "team": team,
         "conference": conf,
         "division": div,
         "record": record,
     }
+
+    # Player-level: accept both bundle['college'] and bundle['player']['college']
+    college = (
+        (bundle.get("college") or "")
+        or (((bundle.get("player") or {}).get("college")) or "")
+    ).strip()
+    if college:
+        result["college"] = college
+
+    return result
+
+
