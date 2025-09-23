@@ -1,6 +1,6 @@
 # app/__init__.py
 import os
-from datetime import datetime, date as _date
+from datetime import datetime, date as _date, timedelta
 from flask import Flask
 from dotenv import load_dotenv
 from typing import Optional
@@ -59,8 +59,14 @@ def create_app() -> Flask:
     global supabase
 
     app = Flask(__name__)
-    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev")
+    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev")  # set a strong value in Render
     app.config["APP_NAME"] = os.getenv("APP_NAME", "Ball Knowledge")
+
+    # Persist sessions across browser restarts
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=180)
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_SECURE"] = True  # Render is HTTPS; set False only for local http
+
 
     # Initialize Supabase client if env vars are present
     url = os.getenv("SUPABASE_URL")

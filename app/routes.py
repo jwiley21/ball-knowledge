@@ -192,12 +192,17 @@ def play():
             if session.get("username"):
                 flash("Username is locked for this browser.")
             else:
+                session.permanent = True
                 session["username"] = proposed
                 session["username_locked"] = True
+
             return redirect(url_for("main.play"))
 
     username = session.get("username")
     username_locked = bool(session.get("username_locked"))
+    if username:
+        session.permanent = True
+
 
     # Determine if this user has already finished today
     already_played_today = has_played_today(username or "")
