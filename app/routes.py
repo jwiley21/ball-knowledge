@@ -28,9 +28,17 @@ def has_played_today(username: str) -> bool:
     # DB path
     if supabase:
         try:
-            u = supabase.table("users").select("id").eq("username", username).maybe_single().execute()
-            data = getattr(u, "data", None)
-            uid = (data or {}).get("id") if isinstance(data, dict) else None
+            u = (
+                supabase.table("users")
+                .select("id,username")
+                .ilike("username", username)
+                .maybe_single()
+                .execute()
+            )
+            row = getattr(u, "data", None)
+            uid = row["id"] if (row and row.get("username", "").lower() == username.lower()) else None
+
+
             if not uid:
                 return False
             r = (supabase.table("results")
@@ -142,6 +150,40 @@ def _db_player_bundle(today_str: str) -> dict:
         "stat_lines": stat_lines,
     }
 
+def _get_or_create_user_id_ci(username: str) -> int | None:
+    """Case-insensitive get-or-create for users.username."""
+    if not supabase or not username:
+        return None
+
+    # Case-insensitive exact match: ilike, then verify in Python
+    sel = (
+        supabase.table("users")
+        .select("id,username")
+        .ilike("username", username)
+        .maybe_single()
+        .execute()
+    )
+    row = getattr(sel, "data", None)
+    if row and (row.get("username", "").lower() == username.lower()):
+        return row["id"]
+
+    # Not found -> try to insert (DB index prevents duplicates)
+    try:
+        supabase.table("users").insert({"username": username}).execute()
+    except Exception:
+        # Likely a race/duplicate; fall through to reselect
+        pass
+
+    sel2 = (
+        supabase.table("users")
+        .select("id,username")
+        .ilike("username", username)
+        .maybe_single()
+        .execute()
+    )
+    row2 = getattr(sel2, "data", None)
+    return row2["id"] if row2 and (row2.get("username", "").lower() == username.lower()) else None
+
 
 
 def get_today_player_bundle() -> dict:
@@ -191,12 +233,36 @@ def play():
         if proposed:
             if session.get("username"):
                 flash("Username is locked for this browser.")
-            else:
-                session.permanent = True
-                session["username"] = proposed
-                session["username_locked"] = True
+                return redirect(url_for("main.play"))
 
+            # Case-insensitive availability + reservation
+            if supabase:
+                chk = (
+                    supabase.table("users")
+                    .select("id,username")
+                    .ilike("username", proposed)
+                    .maybe_single()
+                    .execute()
+                )
+                row = getattr(chk, "data", None)
+                if row and (row.get("username", "").lower() == proposed.lower()):
+                    flash("That username is already taken. Try another.")
+                    return redirect(url_for("main.play"))
+
+                # Reserve now (DB index prevents race dupes)
+                try:
+                    supabase.table("users").insert({"username": proposed}).execute()
+                except Exception:
+                    # If a race happened, treat as taken
+                    flash("That username is already taken. Try another.")
+                    return redirect(url_for("main.play"))
+
+            # Lock into session
+            session.permanent = True
+            session["username"] = proposed
+            session["username_locked"] = True
             return redirect(url_for("main.play"))
+
 
     username = session.get("username")
     username_locked = bool(session.get("username_locked"))
@@ -308,13 +374,8 @@ def guess():
         # Persist to DB
         if supabase and bundle.get("id"):
             try:
-                sel = supabase.table("users").select("id").eq("username", username).maybe_single().execute()
-                user_row = getattr(sel, "data", None)
-                if not user_row:
-                    supabase.table("users").insert({"username": username}).execute()
-                    sel2 = supabase.table("users").select("id").eq("username", username).maybe_single().execute()
-                    user_row = getattr(sel2, "data", None)
-                user_id = user_row["id"] if user_row else None
+                user_id = _get_or_create_user_id_ci(username)
+
                 if user_id is not None:
                     supabase.table("results").upsert(
                         {
