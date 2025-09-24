@@ -2,35 +2,37 @@
 {% block title %}Leaderboard · {{ APP_NAME or "Ball Knowledge" }}{% endblock %}
 
 {% block content %}
-  <section class="bg-white border border-slate-200 rounded-xl shadow-card p-5">
-    <h2 class="text-xl font-semibold mb-1">Today’s Leaderboard</h2>
-    <p class="text-slate-600 mb-4 text-sm">
-      Eastern Time: <span class="font-medium">{{ today_label }}</span>
+<div class="mx-auto max-w-screen-sm pt-2">
+  <section class="bg-[var(--color-card-bg)] text-[var(--color-card-text)] rounded-xl shadow-lg p-5">
+    <h2 class="text-xl font-semibold mb-1 text-[var(--color-card-text)]">Today’s Leaderboard</h2>
+    <p class="text-[var(--color-subtle-text)] mb-4 text-sm">
+      Eastern Time: <span class="font-medium text-[var(--color-card-text)]">{{ today_label }}</span>
     </p>
 
     {% if rows and rows|length > 0 %}
       <div class="overflow-x-auto">
         <table class="w-full border-collapse text-sm">
           <thead>
-            <tr class="text-left border-b border-slate-200">
-              <th class="py-2 pr-3">#</th>
-              <th class="py-2 pr-3">User</th>
-              <th class="py-2 pr-3 text-right">Score</th>
+            <tr class="text-left border-b border-[var(--color-inner-card-border)]">
+              <th class="py-2 pr-3 text-[var(--color-card-text)]">#</th>
+              <th class="py-2 pr-3 text-[var(--color-card-text)]">User</th>
+              <th class="py-2 pr-3 text-right text-[var(--color-card-text)]">Score</th>
             </tr>
           </thead>
           <tbody>
             {% for r in rows %}
-              <tr class="border-b border-slate-100 hover:bg-slate-50">
-                <td class="py-2 pr-3">{{ loop.index }}</td>
-                <td class="py-2 pr-3">{{ r.username }}</td>
-                <td class="py-2 pr-3 text-right font-medium">{{ r.score }}</td>
+              <tr class="border-b border-[var(--color-inner-card-bg)] hover:bg-[var(--color-inner-card-bg)]">
+                <td class="py-2 pr-3 text-[var(--color-subtle-text)]">{{ loop.index }}</td>
+                <td class="py-2 pr-3 text-[var(--color-card-text)]">{{ r.username }}</td>
+                <td class="py-2 pr-3 text-right font-medium text-[var(--color-card-text)]">{{ r.score }}</td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
     {% else %}
-      <p class="text-slate-600">No scores yet. Be the first!</p>
+      <p class="text-[var(--color-subtle-text)]">No scores yet. Be the first!</p>
     {% endif %}
   </section>
+</div>
 {% endblock %}

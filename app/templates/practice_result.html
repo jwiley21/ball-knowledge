@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Practice Result · {{ APP_NAME or "Ball Knowledge" }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-screen-sm px-3 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+  <section class="mb-6">
+    <div class="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-xl shadow-lg p-6 text-center">
+      {% if success %}
+        <h2 class="text-xl font-semibold text-[var(--color-card-text)]">Nice! You got it 🎯</h2>
+        <p class="mt-2 text-[var(--color-subtle-text)]">
+          The player was <span class="font-semibold text-[var(--color-card-text)]">{{ answer }}</span>.
+        </p>
+        <p class="mt-1 text-[var(--color-subtle-text)] text-sm">Practice score: <span class="font-semibold text-[var(--color-card-text)]">{{ score }}</span> (not saved)</p>
+      {% else %}
+        <h2 class="text-xl font-semibold text-[var(--color-card-text)]">You have zero ball knowledge 😅</h2>
+        <p class="mt-2 text-[var(--color-subtle-text)]">
+          The player was <span class="font-semibold text-[var(--color-card-text)]">{{ answer }}</span>.
+        </p>
+      {% endif %}
+
+      <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <a href="{{ url_for('main.practice', new=1) }}"
+           class="inline-flex items-center justify-center rounded-lg bg-[var(--color-accent)] px-4 py-2 font-medium text-[var(--color-accent-text)] shadow hover:bg-[var(--color-accent-hover)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--color-background)] focus:ring-[var(--color-accent-focus-ring)] transition-colors">
+          Play Again
+        </a>
+        <a href="{{ url_for('main.landing') }}"
+           class="inline-flex items-center justify-center rounded-lg bg-[var(--color-button-secondary-bg)] px-4 py-2 font-medium text-[var(--color-button-secondary-text)] shadow hover:bg-[var(--color-button-secondary-hover)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--color-background)] focus:ring-[var(--color-accent-focus-ring)] transition-colors">
+          Back to Game Modes
+        </a>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %} 

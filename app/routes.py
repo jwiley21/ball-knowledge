@@ -207,33 +207,15 @@ def get_today_player_bundle() -> dict:
     }
 
 
-
-
-
-
-def get_username() -> str | None:
-    return session.get("username")
-
-
 @bp.route("/", methods=["GET", "POST"])
-@bp.route("/play", methods=["GET", "POST"])
-def play():
-    # Reset daily state on new ET day (do NOT clear username; we keep it locked)
-    today_et = str(get_today_et())
-    if session.get("last_game_date") != today_et:
-        session["last_game_date"] = today_et
-        session["revealed"] = 1
-        session["hints_used"] = []
-        session.pop("suggestions", None)
-        # Do not reset username or username_locked here
-
-    # Username submit: only allow if username is not already set
+def landing():
+    # Username form now lives here
     if request.method == "POST":
         proposed = (request.form.get("username") or "").strip()
         if proposed:
             if session.get("username"):
                 flash("Username is locked for this browser.")
-                return redirect(url_for("main.play"))
+                return redirect(url_for("main.landing"))
 
             # Case-insensitive availability + reservation
             if supabase:
@@ -247,28 +229,51 @@ def play():
                 row = getattr(chk, "data", None)
                 if row and (row.get("username", "").lower() == proposed.lower()):
                     flash("That username is already taken. Try another.")
-                    return redirect(url_for("main.play"))
-
-                # Reserve now (DB index prevents race dupes)
+                    return redirect(url_for("main.landing"))
                 try:
                     supabase.table("users").insert({"username": proposed}).execute()
                 except Exception:
-                    # If a race happened, treat as taken
                     flash("That username is already taken. Try another.")
-                    return redirect(url_for("main.play"))
+                    return redirect(url_for("main.landing"))
 
-            # Lock into session
             session.permanent = True
             session["username"] = proposed
             session["username_locked"] = True
-            return redirect(url_for("main.play"))
+            return redirect(url_for("main.landing"))
 
+    username = session.get("username")
+    if username:
+        session.permanent = True
+
+    return render_template("landing.html",
+                           username=username,
+                           username_locked=bool(session.get("username_locked")))
+
+
+
+def get_username() -> str | None:
+    return session.get("username")
+
+
+@bp.route("/play", methods=["GET"])
+def play():
+    # Require username before playing
+    if not session.get("username"):
+        flash("Create a display name first.")
+        return redirect(url_for("main.landing"))
+
+    # Reset daily state on new ET day (do NOT clear username; we keep it locked)
+    today_et = str(get_today_et())
+    if session.get("last_game_date") != today_et:
+        session["last_game_date"] = today_et
+        session["revealed"] = 1
+        session["hints_used"] = []
+        session.pop("suggestions", None)
 
     username = session.get("username")
     username_locked = bool(session.get("username_locked"))
     if username:
         session.permanent = True
-
 
     # Determine if this user has already finished today
     already_played_today = has_played_today(username or "")
@@ -286,7 +291,18 @@ def play():
 
     # Normalize hints_used
     hints_used = [str(h).lower() for h in session.get("hints_used", [])]
-    available_hints = [h for h in HINT_COSTS.keys() if h not in hints_used]
+    used = set(hints_used)
+
+    # Start with not-yet-bought hints
+    available_hints = [h for h in HINT_COSTS if h not in used]
+
+    # If Team is bought, Conference & Division are free via Team → hide their buttons
+    if "team" in used:
+        available_hints = [h for h in available_hints if h not in ("conference", "division")]
+    # If Division is bought, Conference is redundant → hide its button
+    elif "division" in used:
+        available_hints = [h for h in available_hints if h != "conference"]
+
 
     # Build per-line hints for revealed lines
     hints_for_lines = []
@@ -309,40 +325,317 @@ def play():
         username=username,
         username_locked=username_locked,
         already_played_today=already_played_today,
-
         player_position=bundle.get("position", ""),
         stat_lines=lines[:revealed],
         revealed=revealed,
-
         hints_for_lines=hints_for_lines,
         hints_used=hints_used,
         available_hints=available_hints,
         hint_costs=HINT_COSTS,
-
         suggestions=suggestions,
-
         live_score=live_score,
         start_score=START_SCORE,
         penalty_per_reveal=PENALTY_PER_REVEAL,
     )
 
 
+def _db_player_bundle_for_id(pid) -> dict:
+    """Build a bundle for a specific player id (used by Practice)."""
+    meta = (
+        supabase.table("players")
+        .select("id,full_name,player_slug,position,college")
+        .eq("id", pid)
+        .limit(1)
+        .execute()
+    )
+    mdata = getattr(meta, "data", None) or []
+    if not mdata:
+        raise RuntimeError(f"Player id {pid} not found in players.")
+    player_meta = mdata[0]
+    college = (player_meta.get("college") or "").strip() or None
+
+    sresp = (
+        supabase.table("player_seasons")
+        .select("season,team,stat1_name,stat1_value,stat2_name,stat2_value,stat3_name,stat3_value")
+        .eq("player_id", pid)
+        .order("season")
+        .execute()
+    )
+    sdata = getattr(sresp, "data", None) or []
+    stat_lines = [{
+        "season": r["season"], "team": r["team"],
+        "stats": {
+            r["stat1_name"]: r["stat1_value"],
+            r["stat2_name"]: r["stat2_value"],
+            r["stat3_name"]: r["stat3_value"],
+        }
+    } for r in sdata]
+
+    return {
+        "id": pid,
+        "full_name": player_meta["full_name"],
+        "player_slug": player_meta["player_slug"],
+        "position": player_meta["position"],
+        "college": college,
+        "stat_lines": stat_lines,
+    }
 
 
-   
+def _get_random_player_id() -> int | None:
+    """Pick a random player id from DB or None if unavailable."""
+    if not supabase:
+        return None
+    presp = supabase.table("players").select("id").limit(5000).execute()
+    pids = [r["id"] for r in (getattr(presp, "data", None) or [])]
+    if not pids:
+        return None
+    import random
+    return random.choice(pids)
 
 
+@bp.route("/practice", methods=["GET"])
+def practice():
+    # Require username first
+    if not session.get("username"):
+        flash("Create a display name first.")
+        return redirect(url_for("main.landing"))
+
+    # Start a new practice run when asked (?new=1) or none exists
+    force_new = (request.args.get("new") == "1")
+    pid = session.get("practice_pid")
+    if force_new or not pid:
+        pid = _get_random_player_id()
+        if pid is None:
+            # JSON fallback
+            import random
+            p = random.choice(PLAYERS or [])
+            session["practice_pid"] = None
+            session["practice_json_slug"] = p.get("player_slug")
+            bundle = {
+                "id": None,
+                "full_name": p.get("full_name"),
+                "player_slug": p.get("player_slug"),
+                "position": p.get("position"),
+                "college": (p.get("college") or None),
+                "stat_lines": stat_lines_for_player(p),
+            }
+        else:
+            session["practice_pid"] = pid
+            session.pop("practice_json_slug", None)
+            bundle = _db_player_bundle_for_id(pid)
+
+        # reset per-run state
+        session["practice_revealed"] = 1
+        session["practice_hints_used"] = []
+        session.pop("practice_suggestions", None)
+    else:
+        # Re-hydrate existing bundle
+        json_slug = session.get("practice_json_slug")
+        if json_slug:
+            p = next((x for x in (PLAYERS or []) if x.get("player_slug") == json_slug), None)
+            if not p:
+                return redirect(url_for("main.practice", new=1))
+            bundle = {
+                "id": None,
+                "full_name": p.get("full_name"),
+                "player_slug": p.get("player_slug"),
+                "position": p.get("position"),
+                "college": (p.get("college") or None),
+                "stat_lines": stat_lines_for_player(p),
+            }
+        else:
+            try:
+                bundle = _db_player_bundle_for_id(pid)
+            except Exception:
+                current_app.logger.exception("practice: failed to rebuild bundle; starting new")
+                return redirect(url_for("main.practice", new=1))
+
+    # Clamp revealed
+    lines = bundle.get("stat_lines") or []
+    revealed = int(session.get("practice_revealed", 1) or 1)
+    revealed = max(1, min(revealed, len(lines) or 1))
+
+    # Hints
+    hints_used = [str(h).lower() for h in session.get("practice_hints_used", [])]
+    used = set(hints_used)
+    available_hints = [h for h in HINT_COSTS if h not in used]
+    if "team" in used:
+        available_hints = [h for h in available_hints if h not in ("conference", "division")]
+    elif "division" in used:
+        available_hints = [h for h in available_hints if h != "conference"]
+
+    # Suggestions
+    suggestions = session.get("practice_suggestions", [])
+
+    # Score (practice only; not saved)
+    live_score = compute_total_score(revealed, hints_used)
+
+    return render_template(
+        "play.html",  # reuse template
+        mode="practice",
+        username=session.get("username"),
+        username_locked=True,
+        already_played_today=False,  # never blocks in practice
+        player_position=bundle.get("position", ""),
+        stat_lines=lines[:revealed],
+        revealed=revealed,
+        hints_for_lines=[hints_resolve(bundle, i) for i in range(revealed)],
+        hints_used=hints_used,
+        available_hints=available_hints,
+        hint_costs=HINT_COSTS,
+        suggestions=suggestions,
+        live_score=live_score,
+        start_score=START_SCORE,
+        penalty_per_reveal=PENALTY_PER_REVEAL,
+        # point the forms to practice endpoints
+        guess_action=url_for("main.practice_guess"),
+        hint_action=url_for("main.practice_hint"),
+    )
+
+@bp.post("/practice/guess")
+def practice_guess():
+    if not session.get("username"):
+        flash("Create a display name first.")
+        return redirect(url_for("main.landing"))
+
+    user_guess_raw = (request.form.get("guess") or "").strip()
+    revealed = int(request.form.get("revealed", 1) or 1)
+    from_suggestion = (request.form.get("from_suggestion") == "1")
+
+    # Rebuild current bundle
+    json_slug = session.get("practice_json_slug")
+    pid = session.get("practice_pid")
+    if json_slug:
+        p = next((x for x in (PLAYERS or []) if x.get("player_slug") == json_slug), None)
+        if not p:
+            return redirect(url_for("main.practice", new=1))
+        bundle = {
+            "id": None,
+            "full_name": p.get("full_name"),
+            "player_slug": p.get("player_slug"),
+            "position": p.get("position"),
+            "college": (p.get("college") or None),
+            "stat_lines": stat_lines_for_player(p),
+        }
+    else:
+        if not pid:
+            return redirect(url_for("main.practice", new=1))
+        bundle = _db_player_bundle_for_id(pid)
+
+    # Check correctness (same logic as daily)
+    candidates = {
+        bundle["full_name"].lower(),
+        bundle["player_slug"].replace("-", " ").lower(),
+    }
+    correct_via_typo = is_typo_match(user_guess_raw, bundle["full_name"])
+    is_correct = (user_guess_raw.lower() in candidates) or correct_via_typo
+
+    # Correct -> show practice result (no DB writes)
+    if is_correct:
+        # compute score for fun
+        hints_used = session.get("practice_hints_used", [])
+        score = compute_total_score(revealed, hints_used)
+
+        # clear current run
+        for k in ("practice_revealed", "practice_hints_used", "practice_suggestions", "practice_pid", "practice_json_slug"):
+            session.pop(k, None)
+
+        return render_template(
+            "practice_result.html",
+            success=True,
+            answer=bundle["full_name"],
+            score=score,
+        )
+
+    # Wrong -> suggestions flow (no attempt count if showing suggestions)
+    population = _get_suggest_population()
+    same_pos = [(n, pos) for (n, pos) in population if pos == bundle.get("position")]
+    pool = same_pos if same_pos else population
+    suggestions = suggest_players(user_guess_raw, pool, limit=4, min_score=80)
+
+    if suggestions and not from_suggestion:
+        session["practice_suggestions"] = suggestions
+        flash("Not quite — did you mean one of these? (This try didn’t count.)")
+        return redirect(url_for("main.practice"))
+
+    if suggestions:
+        session["practice_suggestions"] = suggestions
+
+    revealed = min(int(session.get("practice_revealed", 1) or 1) + 1, 5)
+    session["practice_revealed"] = revealed
+    flash("Nope! Another season line revealed.")
+    return redirect(url_for("main.practice"))
 
 
+@bp.post("/practice/hint")
+def practice_hint():
+    if not session.get("username"):
+        flash("Create a display name first.")
+        return redirect(url_for("main.landing"))
 
+    revealed = int(request.form.get("revealed", 1) or 1)
+    session["practice_revealed"] = revealed
+
+    kind = (request.form.get("hint_type") or "").strip().lower()
+    if not kind or kind not in HINT_COSTS:
+        flash("Unknown hint.")
+        return redirect(url_for("main.practice"))
+
+    used = {str(h).lower() for h in session.get("practice_hints_used", [])}
+
+    # Guard: if Team already bought, ignore Conference/Division charges
+    if "team" in used and kind in {"conference", "division"}:
+        return redirect(url_for("main.practice"))
+
+    if kind not in used:
+        used.add(kind)
+        session["practice_hints_used"] = list(used)
+
+    return redirect(url_for("main.practice"))
+
+
+@bp.post("/practice/giveup")
+def practice_giveup():
+    if not session.get("username"):
+        return redirect(url_for("main.landing"))
+
+    # Determine current answer to show
+    json_slug = session.get("practice_json_slug")
+    pid = session.get("practice_pid")
+    answer = "Unknown"
+    try:
+        if json_slug:
+            p = next((x for x in (PLAYERS or []) if x.get("player_slug") == json_slug), None)
+            if p:
+                answer = p.get("full_name", "Unknown")
+        elif pid:
+            meta = (
+                supabase.table("players")
+                .select("full_name")
+                .eq("id", pid)
+                .limit(1)
+                .execute()
+            )
+            row = (getattr(meta, "data", None) or [{}])[0]
+            answer = row.get("full_name", "Unknown")
+    except Exception:
+        pass
+
+    # Clear current run
+    for k in ("practice_revealed", "practice_hints_used", "practice_suggestions", "practice_pid", "practice_json_slug"):
+        session.pop(k, None)
+
+    return render_template("practice_result.html", success=False, answer=answer, score=0)
 
 
 @bp.post("/guess")
 def guess():
+
     username = session.get("username")
     if not username:
         flash("Enter a username first.")
-        return redirect(url_for("main.play"))
+        return redirect(url_for("main.landing"))
+
 
     # If today's game already completed for this username: block further guesses
     if has_played_today(username):
@@ -458,7 +751,7 @@ def leaderboard():
         return render_template("leaderboard.html", rows=rows, today_label=today_label)
 
     try:
-        # Fetch today's results, highest score first
+        # Today's results, highest score first
         res = (
             supabase.table("results")
             .select("score, user_id")
@@ -471,20 +764,43 @@ def leaderboard():
         if not data:
             return render_template("leaderboard.html", rows=rows, today_label=today_label)
 
-        user_ids = sorted({r["user_id"] for r in data if "user_id" in r and r["user_id"] is not None})
+        user_ids = sorted({r["user_id"] for r in data if r.get("user_id") is not None})
+
+        # id -> username
         id_to_name = {}
         if user_ids:
             ures = supabase.table("users").select("id, username").in_("id", user_ids).execute()
             id_to_name = {u["id"]: u["username"] for u in (getattr(ures, "data", None) or [])}
 
+        # id -> current_streak
+        id_to_streak = {}
+        if user_ids:
+            try:
+                sres = (
+                    supabase.table("streaks")
+                    .select("user_id,current_streak")
+                    .in_("user_id", user_ids)
+                    .execute()
+                )
+                id_to_streak = {s["user_id"]: int(s.get("current_streak") or 0)
+                                for s in (getattr(sres, "data", None) or [])}
+            except Exception:
+                current_app.logger.exception("Leaderboard streaks fetch failed")
+                id_to_streak = {}
+
         rows = [
-            {"username": id_to_name.get(r["user_id"], "unknown"), "score": r["score"]}
+            {
+                "username": id_to_name.get(r["user_id"], "unknown"),
+                "score": r["score"],
+                "streak": id_to_streak.get(r["user_id"], 0),
+            }
             for r in data
         ]
     except Exception:
         current_app.logger.exception("Leaderboard query failed")
 
     return render_template("leaderboard.html", rows=rows, today_label=today_label)
+
 
 
 
@@ -495,6 +811,7 @@ def all_time():
         return render_template("all_time.html", rows=rows)
 
     try:
+        # Sum scores per user
         res = supabase.table("results").select("user_id,score").execute()
         data = getattr(res, "data", None) or []
         if not data:
@@ -509,19 +826,45 @@ def all_time():
                 agg[uid] += s
 
         user_ids = list(agg.keys())
+
+        # id -> username
         id_to_name = {}
         if user_ids:
             ures = supabase.table("users").select("id, username").in_("id", user_ids).execute()
             id_to_name = {u["id"]: u["username"] for u in (getattr(ures, "data", None) or [])}
 
+        # id -> current_streak
+        id_to_streak = {}
+        if user_ids:
+            try:
+                sres = (
+                    supabase.table("streaks")
+                    .select("user_id,current_streak")
+                    .in_("user_id", user_ids)
+                    .execute()
+                )
+                id_to_streak = {s["user_id"]: int(s.get("current_streak") or 0)
+                                for s in (getattr(sres, "data", None) or [])}
+            except Exception:
+                current_app.logger.exception("All-time streaks fetch failed")
+
         rows = sorted(
-            [{"username": id_to_name.get(uid, "unknown"), "total_score": total} for uid, total in agg.items()],
-            key=lambda x: x["total_score"], reverse=True
+            [
+                {
+                    "username": id_to_name.get(uid, "unknown"),
+                    "total_score": total,
+                    "streak": id_to_streak.get(uid, 0),
+                }
+                for uid, total in agg.items()
+            ],
+            key=lambda x: x["total_score"],
+            reverse=True,
         )
     except Exception:
         current_app.logger.exception("All-time leaderboard query failed")
 
     return render_template("all_time.html", rows=rows)
+
 
 
 @bp.route("/health")

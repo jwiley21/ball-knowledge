@@ -14,6 +14,8 @@ HINT_COSTS = {
     "conference": 8,
     "record": 8,
     "college": 20,
+    "first_name": 50,
+    "last_name": 60,
 }
 
 def compute_score(revealed: int) -> int:

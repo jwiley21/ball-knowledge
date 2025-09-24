@@ -115,6 +115,35 @@ def resolve_hint_values(bundle: dict, line_idx: int) -> dict:
     if college:
         result["college"] = college
 
+
+    # Player-level: first/last name parsed from full_name
+    full = (
+        (bundle.get("full_name") or "")
+        or ((bundle.get("player") or {}).get("full_name") or "")
+    ).strip()
+
+    if full:
+        def _strip_suffix(n: str) -> str:
+            toks = n.split()
+            if toks and toks[-1].rstrip(".").upper() in {"JR", "SR", "II", "III", "IV", "V"}:
+                toks = toks[:-1]
+            return " ".join(toks)
+
+        clean = _strip_suffix(full)
+        parts = clean.split()
+        if len(parts) >= 2:
+            first, last = parts[0], parts[-1]
+        elif parts:
+            first, last = parts[0], ""
+        else:
+            first = last = ""
+
+        if first:
+            result["first_name"] = first
+        if last:
+            result["last_name"] = last
+
+
     return result
 
 

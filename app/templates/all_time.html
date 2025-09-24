@@ -2,33 +2,46 @@
 {% block title %}All-Time Leaderboard · {{ APP_NAME or "Ball Knowledge" }}{% endblock %}
 
 {% block content %}
-  <section class="bg-white border border-slate-200 rounded-xl shadow-card p-5">
-    <h2 class="text-xl font-semibold mb-4">All-Time Leaderboard</h2>
+<div class="mx-auto max-w-screen-sm px-3 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+  <section class="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-xl shadow-lg p-5">
+    <h2 class="text-xl font-semibold text-[var(--color-card-text)] mb-4">All-Time Leaderboard</h2>
 
     {% if rows and rows|length > 0 %}
       <div class="overflow-x-auto">
         <table class="w-full border-collapse text-sm">
           <thead>
-            <tr class="text-left border-b border-slate-200">
-              <th class="py-2 pr-3">#</th>
-              <th class="py-2 pr-3">User</th>
-              <th class="py-2 pr-3 text-right">Total Score</th>
+            <tr class="text-left border-b border-[var(--color-inner-card-border)]">
+              <th class="py-2 pr-3 font-semibold text-[var(--color-card-text)]">#</th>
+              <th class="py-2 pr-3 font-semibold text-[var(--color-card-text)]">User</th>
+              <th class="py-2 pr-3 font-semibold text-[var(--color-card-text)] text-right">Total Score</th>
             </tr>
           </thead>
           <tbody>
             {% for r in rows %}
-              <tr class="border-b border-slate-100 hover:bg-slate-50">
-                <td class="py-2 pr-3">{{ loop.index }}</td>
-                <td class="py-2 pr-3">{{ r.username }}</td>
-                <td class="py-2 pr-3 text-right font-medium">{{ r.total_score }}</td>
+              <tr class="border-b border-[var(--color-inner-card-border)]/50">
+                <td class="py-2 pr-3 text-[var(--color-subtle-text)]">{{ loop.index }}</td>
+                <td class="py-2 pr-3 text-[var(--color-card-text)]">
+                  <span class="inline-flex items-center">
+                    {{ r.username }}
+                    {# Note: All-time streak display logic might differ from daily streak #}
+                    {% if r.streak and r.streak|int >= 3 %}
+                      <span class="ml-2 inline-flex items-center rounded-full bg-[var(--color-accent)]/20 text-[var(--color-accent-text)] px-2 py-0.5 text-xs border border-[var(--color-accent)]/30 font-medium">
+                        {{ r.streak }} 🔥
+                      </span>
+                    {% endif %}
+                  </span>
+                </td>
+                <td class="py-2 pr-3 text-[var(--color-card-text)] text-right font-medium">{{ r.total_score }}</td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
-        <h3>*Subject to change with scoring updates</h3>
+        <h3 class="text-xs text-[var(--color-subtle-text)] mt-4">*Subject to change with scoring updates</h3>
       </div>
     {% else %}
-      <p class="text-slate-600">No scores yet. Be the first!</p>
+      <p class="text-[var(--color-subtle-text)]">No scores yet. Be the first!</p>
     {% endif %}
   </section>
+</div>
 {% endblock %}
+
