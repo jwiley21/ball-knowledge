@@ -46,35 +46,25 @@ def short_key(s: str) -> str:
 
 # --- Typo forgiveness for the *correct* player --------------------------------
 
-def is_typo_match(query: str, answer_fullname: str) -> bool:
-    """
-    True if query is 'close enough' to the *correct* answer (forgiving typos).
-    - Accept exact/slug-ish matches via normalization.
-    - Accept >= 90 similarity (RapidFuzz) or difflib close match.
-    - Accept first-initial + last-name exact (e.g., 't brady').
-    """
-    qn = norm_name(query)
-    an = norm_name(answer_fullname)
+# app/services/match.py
+from rapidfuzz import fuzz, utils
 
-    if not qn or not an:
+def _norm(s: str) -> str:
+    return utils.default_process(s or "")
+
+def is_typo_match(guess: str, target: str, cutoff: int = 78) -> bool:
+    """More forgiving match: try several scorers and accept the best."""
+    g = _norm(guess)
+    t = _norm(target)
+    if not g or not t:
         return False
+    scores = (
+        fuzz.WRatio(g, t),
+        fuzz.token_set_ratio(g, t),
+        fuzz.partial_ratio(g, t),
+    )
+    return max(scores) >= cutoff
 
-    # Exact normalized match
-    if qn == an:
-        return True
-
-    # First-initial + last-name
-    if qn == short_key(answer_fullname):
-        return True
-
-    if HAVE_RAPIDFUZZ:
-        score = fuzz.ratio(qn, an)
-        return score >= 90  # tune as desired
-    else:
-        # difflib fallback (roughly similar; not a percentage)
-        alts = [an]
-        close = get_close_matches(qn, alts, n=1, cutoff=0.88)
-        return bool(close)
 
 
 # --- Suggestions across the roster -------------------------------------------

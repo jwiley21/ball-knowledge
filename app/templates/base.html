@@ -4,27 +4,28 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{% block title %}{{ APP_NAME or "Ball Knowledge" }}{% endblock %}</title>
-    
+
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
 
-    <!-- THEME AND STYLES -->
+    <!-- THEME AND STYLES (unaltered from your version) -->
     <style>
       :root {
-        /* Dark Theme (Original Mockup) */
+        /* Dark Theme */
         --color-background: #1e1e2c;
         --color-text-on-bg: #e0e0e0;
-        
+
         --color-header-bg: rgba(44, 44, 64, 0.5); /* #2c2c40 w/transparency */
         --color-header-border: #3a3a4c;
 
         --color-card-bg: #2c2c40;
         --color-card-text: #e0e0e0;
         --color-card-border: #3a3a4c;
-        
+
         --color-inner-card-bg: #3a3a4c;
         --color-inner-card-border: #4a4a5a;
 
@@ -36,7 +37,7 @@
         --color-button-secondary-bg: #3a3a4c;
         --color-button-secondary-hover: #4a4a5a;
         --color-button-secondary-text: #e0e0e0;
-        
+
         --color-subtle-text: #a0a0a0;
         --color-hidden-text: #606060;
 
@@ -45,57 +46,47 @@
         --color-input-text: #e0e0e0;
       }
 
-      body { 
-        font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; 
+      body {
+        font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
       }
-      
-      .font-press-start {
-        font-family: 'Press Start 2P', cursive;
-      }
-      
-      input:-webkit-autofill { 
-        -webkit-text-fill-color: var(--color-input-text); 
-        -webkit-box-shadow: 0 0 0 1000px var(--color-input-bg) inset; 
+      .font-press-start { font-family: 'Press Start 2P', cursive; }
+
+      input:-webkit-autofill {
+        -webkit-text-fill-color: var(--color-input-text);
+        -webkit-box-shadow: 0 0 0 1000px var(--color-input-bg) inset;
       }
     </style>
 
     {% block head %}{% endblock %}
   </head>
   <body class="min-h-screen bg-[var(--color-background)] text-[var(--color-text-on-bg)]">
-    
-    {% set ep = request.endpoint or '' %}
 
     <header class="bg-[var(--color-header-bg)] backdrop-blur-sm border-b border-[var(--color-header-border)] sticky top-0 z-50">
       <div class="max-w-3xl mx-auto px-4 py-4">
-        
-        <h1 id="app-header" class="font-press-start text-3xl md:text-4xl text-center tracking-wider text-white" style="text-shadow: 0 0 4px #fff, 0 0 8px #fff, 0 0 12px #BF00FF, 0 0 20px #BF00FF;">
+
+        <!-- Title -->
+        <h1 id="app-header"
+            class="font-press-start text-3xl md:text-4xl text-center tracking-wider text-white"
+            style="text-shadow: 0 0 4px #fff, 0 0 8px #fff, 0 0 12px #BF00FF, 0 0 20px #BF00FF;">
           {{ APP_NAME or "Ball Knowledge" }}
         </h1>
 
+        <!-- Nav (always purple, no active highlight) -->
         <nav class="mt-4" aria-label="Primary">
-          <div class="grid grid-cols-3 gap-2">
+          <div class="grid grid-cols-2 gap-2">
             <a href="{{ url_for('main.landing') }}"
-               class="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--color-background)] focus:ring-[var(--color-accent-focus-ring)]
-                      {% if ep == 'main.landing' %} bg-[var(--color-accent)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-hover)] 
-                      {% else %} bg-white/10 text-white hover:bg-white/20 {% endif %}"
-               {% if ep == 'main.landing' %}aria-current="page"{% endif %}>
+               class="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium shadow-sm
+                      bg-violet-600 text-white hover:bg-violet-500 focus:outline-none
+                      focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--color-background)] focus:ring-violet-400">
               Game Modes
             </a>
 
-            <a href="{{ url_for('main.leaderboard') }}"
-               class="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--color-background)] focus:ring-[var(--color-accent-focus-ring)]
-                      {% if ep == 'main.leaderboard' %} bg-[var(--color-accent)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-hover)] 
-                      {% else %} bg-white/10 text-white hover:bg-white/20 {% endif %}"
-               {% if ep == 'main.leaderboard' %}aria-current="page"{% endif %}>
-              Leaderboard
-            </a>
-
-            <a href="{{ url_for('main.all_time') }}"
-               class="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--color-background)] focus:ring-[var(--color-accent-focus-ring)]
-                      {% if ep == 'main.all_time' %} bg-[var(--color-accent)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-hover)]
-                      {% else %} bg-white/10 text-white hover:bg-white/20 {% endif %}"
-               {% if ep == 'main.all_time' %}aria-current="page"{% endif %}>
-              All Time
+            <!-- Leaderboards -->
+            <a href="{{ url_for('main.leaderboards') }}"
+               class="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium shadow-sm
+                      bg-violet-600 text-white hover:bg-violet-500 focus:outline-none
+                      focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--color-background)] focus:ring-violet-400">
+              Leaderboards
             </a>
           </div>
         </nav>
@@ -117,7 +108,5 @@
     </main>
 
     {% block scripts %}{% endblock %}
-    
   </body>
 </html>
-

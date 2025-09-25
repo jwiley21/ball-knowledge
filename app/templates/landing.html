@@ -1,14 +1,14 @@
 {% extends 'base.html' %}
-{% block title %}Home · {{ APP_NAME or "Ball Knowledge" }}{% endblock %}
+{% block title %}Game Modes · {{ APP_NAME or "Ball Knowledge" }}{% endblock %}
 
 {% block content %}
-<div class="mx-auto max-w-screen-sm pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+<div class="mx-auto max-w-screen-sm px-3 pt-4 pb-[max(4rem,env(safe-area-inset-bottom))]">
 
   <!-- Username card -->
   <section class="mb-6">
-    <div class="bg-[var(--color-card-bg)] text-[var(--color-card-text)] rounded-xl shadow-lg p-5">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-lg p-5">
       {% if not username %}
-        <h2 class="text-lg font-semibold mb-3 text-[var(--color-card-text)]">Enter your display name</h2>
+        <h2 class="text-lg font-semibold text-slate-100 mb-3">Choose a username</h2>
         <form method="post" action="{{ url_for('main.landing') }}" class="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <input
             type="text"
@@ -18,83 +18,90 @@
             autocapitalize="words"
             autocomplete="nickname"
             inputmode="text"
-            class="w-full sm:flex-1 rounded-lg border border-[var(--color-input-border)] bg-[var(--color-input-bg)] text-[var(--color-input-text)] px-3 py-3 text-base placeholder-[var(--color-subtle-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-focus-ring)] focus:border-[var(--color-accent-focus-ring)]"
+            class="w-full sm:flex-1 rounded-lg border border-slate-600 bg-slate-700 px-3 py-3 text-base text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
           <button
             type="submit"
-            class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-[var(--color-accent)] px-4 py-3 font-medium text-[var(--color-accent-text)] shadow hover:bg-[var(--color-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-focus-ring)]"
+            class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white shadow hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-indigo-500"
           >
             Save
           </button>
         </form>
-        <p class="text-xs text-[var(--color-subtle-text)] mt-2">Your name is locked to this browser.</p>
+        <p class="text-xs text-slate-400 mt-2">Usernames are case-insensitive and locked to this browser.</p>
       {% else %}
         <div class="flex flex-wrap items-center gap-3">
-          <span class="inline-flex items-center gap-2 rounded-full bg-black/10 text-[var(--color-card-text)] px-3 py-1 text-sm">
+          <span class="inline-flex items-center gap-2 rounded-full bg-indigo-900/40 text-indigo-200 px-3 py-1 text-sm border border-indigo-800/40">
             <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M10 2a8 8 0 100 16 8 8 0 000-16Zm1 11H9V9h2v4Zm0-6H9V5h2v2Z"/></svg>
             {{ username }}
           </span>
           {% if username_locked %}
-            <span class="text-xs text-[var(--color-subtle-text)]">Name is locked for this browser.</span>
+            <span class="text-xs text-slate-400">Locked to this browser.</span>
           {% endif %}
         </div>
       {% endif %}
     </div>
   </section>
 
-  <!-- Mode picker -->
+  <!-- Modes card -->
   <section>
-    <div class="bg-[var(--color-card-bg)] text-[var(--color-card-text)] rounded-xl shadow-lg p-5">
-      <h2 class="text-lg font-semibold mb-3 text-[var(--color-card-text)]">Choose a mode</h2>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-lg p-5">
+      <h3 class="font-semibold text-slate-100 mb-3">Pick a mode</h3>
+
       <div class="grid gap-3">
         <!-- Daily -->
         <form method="get" action="{{ url_for('main.play') }}">
-            <button
-                type="submit"
-                {% if not username %}disabled{% endif %}
-                class="w-full inline-flex items-center justify-center rounded-lg px-4 py-3 font-medium shadow focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-focus-ring)]
-                        {% if username %}
-                        bg-[var(--color-accent)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-hover)]
-                        {% else %}
-                        border border-[var(--color-input-border)] bg-[var(--color-card-bg)] text-[var(--color-card-text)] disabled:opacity-50 disabled:pointer-events-none
-                        {% endif %}">
-                Play Daily
-            </button>
+          <button
+            type="submit"
+            {% if not username %}disabled{% endif %}
+            class="w-full inline-flex items-center justify-between rounded-lg px-4 py-3 font-medium shadow
+                   {% if username %}
+                     bg-indigo-600 text-white hover:bg-indigo-500
+                   {% else %}
+                     bg-slate-700 text-slate-400 cursor-not-allowed
+                   {% endif %}"
+          >
+            <span>Daily Game</span>
+            <span class="text-xs opacity-90">One try per day</span>
+          </button>
         </form>
 
         <!-- Practice -->
         <form method="get" action="{{ url_for('main.practice') }}">
-            <button
-                type="submit"
-                {% if not username %}disabled{% endif %}
-                class="w-full inline-flex items-center justify-center rounded-lg px-4 py-3 font-medium shadow focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-focus-ring)]
-                    {% if username %}
-                    bg-[var(--color-accent)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-hover)]
-                    {% else %}
-                    border border-[var(--color-input-border)] bg-[var(--color-card-bg)] text-[var(--color-card-text)] disabled:opacity-50 disabled:pointer-events-none
-                    {% endif %}">
-                Practice
-            </button>
+          <button
+            type="submit"
+            {% if not username %}disabled{% endif %}
+            class="w-full inline-flex items-center justify-between rounded-lg px-4 py-3 font-medium shadow
+                   {% if username %}
+                     bg-indigo-600 text-white hover:bg-indigo-500
+                   {% else %}
+                     bg-slate-700 text-slate-400 cursor-not-allowed
+                   {% endif %}"
+          >
+            <span>Practice</span>
+            <span class="text-xs opacity-90">Unlimited plays</span>
+          </button>
         </form>
 
-        <!-- NBA (coming soon) -->
-        <form method="get" action="{{ url_for('main.landing') }}">
-            <button
-                    type="submit"
-                    {% if not username %}disabled{% endif %}
-                    class="w-full inline-flex items-center justify-center rounded-lg px-4 py-3 font-medium shadow focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-focus-ring)]
-                        {% if username %}
-                        bg-[var(--color-accent)] text-[var(--color-accent-text)] hover:bg-[var(--color-accent-hover)]
-                        {% else %}
-                        border border-[var(--color-input-border)] bg-[var(--color-card-bg)] text-[var(--color-card-text)] disabled:opacity-50 disabled:pointer-events-none
-                        {% endif %}">
-                    NBA (Coming Soon)
-                </button>
+        <!-- Timed -->
+        <form method="get" action="{{ url_for('main.timed') }}">
+          <button
+            type="submit"
+            {% if not username %}disabled{% endif %}
+            class="w-full inline-flex items-center justify-between rounded-lg px-4 py-3 font-medium shadow
+                   {% if username %}
+                     bg-indigo-600 text-white hover:bg-indigo-500
+                   {% else %}
+                     bg-slate-700 text-slate-400 cursor-not-allowed
+                   {% endif %}"
+          >
+            <span>Timed (2:00)</span>
+            <span class="text-xs opacity-90">Rack up points</span>
+          </button>
         </form>
-        <!-- 90s -->
       </div>
+
       {% if not username %}
-        <p class="text-xs text-[var(--color-subtle-text)] mt-2">Create a display name to enable the buttons.</p>
+        <p class="text-xs text-slate-400 mt-3">Create a username above to start playing.</p>
       {% endif %}
     </div>
   </section>

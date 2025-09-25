@@ -2,37 +2,56 @@
 {% block title %}Leaderboard · {{ APP_NAME or "Ball Knowledge" }}{% endblock %}
 
 {% block content %}
-<div class="mx-auto max-w-screen-sm pt-2">
-  <section class="bg-[var(--color-card-bg)] text-[var(--color-card-text)] rounded-xl shadow-lg p-5">
-    <h2 class="text-xl font-semibold mb-1 text-[var(--color-card-text)]">Today’s Leaderboard</h2>
-    <p class="text-[var(--color-subtle-text)] mb-4 text-sm">
-      Eastern Time: <span class="font-medium text-[var(--color-card-text)]">{{ today_label }}</span>
-    </p>
+<div class="mx-auto max-w-screen-sm px-3 pt-4">
 
-    {% if rows and rows|length > 0 %}
-      <div class="overflow-x-auto">
-        <table class="w-full border-collapse text-sm">
-          <thead>
-            <tr class="text-left border-b border-[var(--color-inner-card-border)]">
-              <th class="py-2 pr-3 text-[var(--color-card-text)]">#</th>
-              <th class="py-2 pr-3 text-[var(--color-card-text)]">User</th>
-              <th class="py-2 pr-3 text-right text-[var(--color-card-text)]">Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for r in rows %}
-              <tr class="border-b border-[var(--color-inner-card-bg)] hover:bg-[var(--color-inner-card-bg)]">
-                <td class="py-2 pr-3 text-[var(--color-subtle-text)]">{{ loop.index }}</td>
-                <td class="py-2 pr-3 text-[var(--color-card-text)]">{{ r.username }}</td>
-                <td class="py-2 pr-3 text-right font-medium text-[var(--color-card-text)]">{{ r.score }}</td>
+  <section class="mb-6">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-lg p-5">
+      <h2 class="text-xl font-semibold text-slate-100">Today’s Leaderboard</h2>
+      {% if today_label %}
+        <p class="text-slate-400 text-sm mt-1">Game date: <span class="font-mono">{{ today_label }}</span></p>
+      {% endif %}
+
+      {% if rows and rows|length > 0 %}
+        <div class="mt-4 overflow-hidden rounded-lg border border-slate-700">
+          <table class="min-w-full divide-y divide-slate-700">
+            <thead class="bg-slate-900/40">
+              <tr class="text-left text-slate-300 text-sm">
+                <th class="px-4 py-2 w-10">#</th>
+                <th class="px-4 py-2">User</th>
+                <th class="px-4 py-2 text-right">Score</th>
+                <th class="px-4 py-2 text-right">Streak</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% else %}
-      <p class="text-[var(--color-subtle-text)]">No scores yet. Be the first!</p>
-    {% endif %}
+            </thead>
+            <tbody class="divide-y divide-slate-700">
+              {% for r in rows %}
+                {% set streak = r.streak|default(0) %}
+                <tr class="text-slate-200">
+                  <td class="px-4 py-2">{{ loop.index }}</td>
+                  <td class="px-4 py-2">
+                    <span class="truncate">{{ r.username }}</span>
+                  </td>
+                  <td class="px-4 py-2 text-right font-semibold">{{ r.score }}</td>
+                  <td class="px-4 py-2 text-right">
+                    {% if streak >= 3 %}
+                      <span title="On fire!" class="inline-flex items-center gap-1 font-semibold text-amber-300">
+                        🔥 {{ streak }}
+                      </span>
+                    {% elif streak > 0 %}
+                      <span class="text-slate-300 font-medium">{{ streak }}</span>
+                    {% else %}
+                      <span class="text-slate-500">—</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-slate-400 mt-3">No results yet for today.</p>
+      {% endif %}
+    </div>
   </section>
+
 </div>
 {% endblock %}

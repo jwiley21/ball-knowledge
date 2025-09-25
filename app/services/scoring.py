@@ -9,7 +9,7 @@ PENALTY_PER_REVEAL = 10  # lose 10 points per extra stat line revealed (beyond t
 
 # Hint costs (all keys MUST be lowercase and match what the UI uses)
 HINT_COSTS = {
-    "team": 15,
+    "team": 20,
     "division": 10,
     "conference": 8,
     "record": 8,

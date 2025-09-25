@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Leaderboards · {{ APP_NAME or "Ball Knowledge" }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-screen-md px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-lg">
+    <div class="px-5 pt-4 pb-2 border-b border-slate-700 text-center">
+      <h2 class="text-lg font-semibold text-slate-100">Leaderboards</h2>
+      <p class="text-xs text-slate-400">Daily ({{ today_label }}), Timed Top 10, Daily All-Time</p>
+    </div>
+
+    <div class="px-3 py-2 flex items-center justify-center gap-2">
+      <a href="{{ url_for('main.leaderboards', tab='daily') }}"
+         class="px-3 py-1.5 rounded-lg border text-sm font-semibold
+                {% if active=='daily' %}bg-indigo-600 text-white border-indigo-600{% else %}text-slate-300 border-slate-600 hover:bg-slate-700{% endif %}">
+        Daily
+      </a>
+      <a href="{{ url_for('main.leaderboards', tab='timed') }}"
+         class="px-3 py-1.5 rounded-lg border text-sm font-semibold
+                {% if active=='timed' %}bg-indigo-600 text-white border-indigo-600{% else %}text-slate-300 border-slate-600 hover:bg-slate-700{% endif %}">
+        Timed
+      </a>
+      <a href="{{ url_for('main.leaderboards', tab='alltime') }}"
+         class="px-3 py-1.5 rounded-lg border text-sm font-semibold
+                {% if active=='alltime' %}bg-indigo-600 text-white border-indigo-600{% else %}text-slate-300 border-slate-600 hover:bg-slate-700{% endif %}">
+        Daily All-Time
+      </a>
+    </div>
+
+    <div class="p-5">
+
+      <div {% if active!='daily' %}class="hidden"{% endif %}>
+        {% if daily_rows and daily_rows|length > 0 %}
+          <ol class="space-y-1">
+            {% for r in daily_rows %}
+              <li class="flex items-center justify-between border-b border-slate-700 px-3 py-2">
+                <span class="font-medium text-slate-200">{{ loop.index }}. {{ r.username }}</span>
+                <span class="text-white font-semibold">{{ r.score }}</span>
+              </li>
+            {% endfor %}
+          </ol>
+        {% else %}
+          <p class="text-center text-slate-400">No scores yet for today.</p>
+        {% endif %}
+      </div>
+
+      <div {% if active!='timed' %}class="hidden"{% endif %}>
+        {% if timed_rows and timed_rows|length > 0 %}
+          <ol class="space-y-1">
+            {% for r in timed_rows %}
+              <li class="flex items-center justify-between border-b border-slate-700 px-3 py-2">
+                <span class="font-medium text-slate-200">{{ loop.index }}. {{ r.username }}</span>
+                <span class="text-white font-semibold">{{ r.score }}</span>
+              </li>
+            {% endfor %}
+          </ol>
+        {% else %}
+          <p class="text-center text-slate-400">No timed scores yet.</p>
+        {% endif %}
+      </div>
+
+      <div {% if active!='alltime' %}class="hidden"{% endif %}>
+        {% if alltime_rows and alltime_rows|length > 0 %}
+          <ol class="space-y-1">
+            {% for r in alltime_rows %}
+              <li class="flex items-center justify-between border-b border-slate-700 px-3 py-2">
+                <span class="font-medium text-slate-200">
+                    {{ loop.index }}. {{ r.username }}
+                    {% if r.streak and r.streak|int >= 3 %}
+                    <span class="ml-2 inline-flex items-center rounded-full bg-emerald-900/40 text-emerald-300 px-2 py-0.5 text-[11px] border border-emerald-800 font-semibold">
+                        {{ r.streak }} 🔥
+                    </span>
+                    {% endif %}
+                </span>
+                <span class="text-white font-semibold">{{ r.total_score }}</span>
+                </li>
+
+            {% endfor %}
+          </ol>
+        {% else %}
+          <p class="text-center text-slate-400">No all-time totals yet.</p>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
