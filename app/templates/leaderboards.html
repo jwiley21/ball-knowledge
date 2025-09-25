@@ -32,18 +32,43 @@
 
       <div {% if active!='daily' %}class="hidden"{% endif %}>
         {% if daily_rows and daily_rows|length > 0 %}
-          <ol class="space-y-1">
+            <ol class="space-y-1">
             {% for r in daily_rows %}
-              <li class="flex items-center justify-between border-b border-slate-700 px-3 py-2">
-                <span class="font-medium text-slate-200">{{ loop.index }}. {{ r.username }}</span>
+                <li class="flex items-center justify-between border-b border-slate-700 px-3 py-2">
+                <span class="font-medium text-slate-200 flex items-center gap-2">
+                    {{ loop.index }}. {{ r.username }}
+                    {% if r.cheated %}
+                    <span class="inline-flex items-center rounded-full bg-rose-900/40 text-rose-300 px-2 py-0.5 text-[11px] border border-rose-800 font-semibold">
+                        CHEATED
+                    </span>
+                    {% endif %}
+                </span>
                 <span class="text-white font-semibold">{{ r.score }}</span>
-              </li>
+                </li>
             {% endfor %}
-          </ol>
-        {% else %}
-          <p class="text-center text-slate-400">No scores yet for today.</p>
-        {% endif %}
-      </div>
+            </ol>
+
+            <!-- Cheated disclaimer -->
+             {% if active == 'daily' and (daily_rows|selectattr('cheated')|list|length) %}
+                <div class="mt-3 rounded-md bg-slate-800/60 border border-slate-700 px-3 py-2 text-[9px] text-slate-400">
+                <div class="flex items-start gap-2">
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 shrink-0 text-slate-300 mt-0.5">
+                    <path d="M10 2a8 8 0 100 16 8 8 0 000-16Zm1 11H9V9h2v4Zm0-6H9V5h2v2Z"/>
+                    </svg>
+                    <p>
+                    <span class="font-semibold text-rose-300">CHEATED</span> appears when your browser/tab went to the background during a Daily round.
+                    Your score still counts but is flagged. It is impossible to tell what page the user switched to therefore, any switch will be 
+                    assumed as cheating. Calls, app switching, or low-power mode on phones may trigger this as well.
+                    </p>
+                </div>
+                </div>
+            {% endif %}
+  {% else %}
+    <p class="text-center text-slate-400">No scores yet for today.</p>
+  {% endif %}
+</div>
+    
+
 
       <div {% if active!='timed' %}class="hidden"{% endif %}>
         {% if timed_rows and timed_rows|length > 0 %}

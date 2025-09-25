@@ -222,7 +222,6 @@
               formaction="{{ url_for('main.practice_giveup') }}"
               formmethod="post"
               formnovalidate
-              onclick="return confirm('Are you sure you want to give up?');"
               class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-rose-600 px-4 py-2 font-medium text-white shadow hover:bg-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-600 mt-1"
             >
               Give Up
@@ -294,5 +293,43 @@
       out.textContent = calcScore(start, perRev, revealed, hints, costs);
     })();
   </script>
+  
 </div>
+
+{% if mode == 'daily' %}
+<script>
+(function () {
+  // No Jinja in JS → silences VS Code diagnostics
+  var url = "/cheat-mark";
+
+  function markCheated() {
+    try {
+      if (navigator.sendBeacon) {
+        var body = new URLSearchParams();
+        body.append("mode", "daily");
+        var blob = new Blob([body.toString()], {
+          type: "application/x-www-form-urlencoded;charset=UTF-8"
+        });
+        navigator.sendBeacon(url, blob);
+        return;
+      }
+    } catch (e) { /* ignore */ }
+
+    try {
+      fetch(url + "?mode=daily", { method: "POST", keepalive: true });
+    } catch (e) { /* ignore */ }
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") {
+      markCheated();
+    }
+  });
+})();
+</script>
+{% endif %}
+
+
+
+
 {% endblock %}

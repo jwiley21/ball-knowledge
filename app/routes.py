@@ -324,6 +324,7 @@ def play():
         session["revealed"] = 1
         session["hints_used"] = []
         session.pop("suggestions", None)
+        session.pop("cheated_today", None)
 
     username = session.get("username")
     username_locked = bool(session.get("username_locked"))
@@ -392,6 +393,7 @@ def play():
         live_score=live_score,
         start_score=START_SCORE,
         penalty_per_reveal=PENALTY_PER_REVEAL,
+        mode="daily",
     )
 
 
@@ -799,7 +801,7 @@ def leaderboards():
         try:
             # Daily (today)
             res = (supabase.table("results")
-                   .select("score,user_id")
+                   .select("score,user_id,cheated")
                    .eq("game_date", today_et)
                    .order("score", desc=True)
                    .limit(50)
@@ -810,7 +812,15 @@ def leaderboards():
             if uids:
                 ures = supabase.table("users").select("id,username").in_("id", uids).execute()
                 id_to_name = {u["id"]: u["username"] for u in (getattr(ures, "data", None) or [])}
-            daily_rows = [{"username": id_to_name.get(r["user_id"], "unknown"), "score": r["score"]} for r in data]
+            daily_rows = [{
+                "username": id_to_name.get(r["user_id"], "unknown"),
+                "score": r["score"],
+                "cheated": bool(r.get("cheated"))  # <-- include cheated flag
+            } for r in data]
+
+
+
+
         except Exception:
             current_app.logger.exception("leaderboards daily failed")
 
@@ -954,7 +964,8 @@ def practice():
     # Hints
     hints_used = [str(h).lower() for h in session.get("practice_hints_used", [])]
     used = set(hints_used)
-    available_hints = [h for h in HINT_COSTS if h not in used]
+    HIDE = {"record", "conference"}  # <--- toggle anything here
+    available_hints = [h for h in HINT_COSTS.keys() if h not in hints_used and h not in HIDE]
     if "team" in used:
         available_hints = [h for h in available_hints if h not in ("conference", "division")]
     elif "division" in used:
@@ -1164,7 +1175,7 @@ def guess():
         score = compute_total_score(revealed, hints_used)
         today_str = str(get_today_et())
 
-        # Persist to DB (results + streak update)
+        # Persist to DB (results + streak update + cheat detection)
         if supabase and bundle.get("id"):
             try:
                 user_id = _get_or_create_user_id_ci(username)
@@ -1176,6 +1187,7 @@ def guess():
                             "revealed": int(revealed),
                             "score": int(score),
                             "correct_attempts": int(revealed),
+                            "cheated": bool(session.get("cheated_today", False)),
                         },
                         on_conflict="game_date,user_id",
                     ).execute()
@@ -1469,5 +1481,12 @@ def debug_timed_save():
         return {"ok": False, "err": str(e)}
 
 
-
+# Very primative and lose cheat detection, if user leaves tab during daily game, will be flagged
+@bp.post("/cheat-mark")
+def cheat_mark():
+    # Only mark for DAILY games; ignore practice/timed
+    m = request.form.get("mode") or request.args.get("mode") or ""
+    if m.lower() == "daily":
+        session["cheated_today"] = True
+    return jsonify(ok=True)
 
