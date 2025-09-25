@@ -1206,7 +1206,13 @@ def guess():
         session["hints_used"] = []
         session.pop("suggestions", None)
 
-        return render_template("result.html", score=score, answer=bundle.get("full_name") or "")
+        return render_template(
+            "result.html",
+            score=score,
+            answer=bundle["full_name"],
+            cheated=bool(session.get("cheated_today"))  # <-- pass flag to template
+        )
+
 
     # ----- Wrong ---------------------------------------------------------------
     # Build suggestions (prefer same position)

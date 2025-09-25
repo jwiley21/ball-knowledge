@@ -14,7 +14,7 @@
             type="text"
             name="username"
             required
-            placeholder="e.g. Nick Chubb or Mgarret"
+            placeholder="e.g. John Smith or jsmith17"
             autocapitalize="words"
             autocomplete="nickname"
             inputmode="text"
@@ -53,15 +53,15 @@
           <button
             type="submit"
             {% if not username %}disabled{% endif %}
-            class="w-full inline-flex items-center justify-between rounded-lg px-4 py-3 font-medium shadow
+            class="w-full flex flex-col items-start text-left rounded-lg px-4 py-3 shadow
                    {% if username %}
                      bg-indigo-600 text-white hover:bg-indigo-500
                    {% else %}
                      bg-slate-700 text-slate-400 cursor-not-allowed
                    {% endif %}"
           >
-            <span>Daily Game</span>
-            <span class="text-xs opacity-90">One try per day</span>
+            <span class="font-medium">Daily Game</span>
+            <span class="text-xs opacity-90 font-normal">Everyone gets 1 try at the same player</span>
           </button>
         </form>
 
@@ -70,15 +70,16 @@
           <button
             type="submit"
             {% if not username %}disabled{% endif %}
-            class="w-full inline-flex items-center justify-between rounded-lg px-4 py-3 font-medium shadow
+            
+            class="w-full flex flex-col items-start text-left rounded-lg px-4 py-3 shadow
                    {% if username %}
                      bg-indigo-600 text-white hover:bg-indigo-500
                    {% else %}
                      bg-slate-700 text-slate-400 cursor-not-allowed
                    {% endif %}"
           >
-            <span>Practice</span>
-            <span class="text-xs opacity-90">Unlimited plays</span>
+            <span class="font-medium">Practice</span>
+            <span class="text-xs opacity-90 font-normal">Unlimited plays and free skips</span>
           </button>
         </form>
 
@@ -87,15 +88,16 @@
           <button
             type="submit"
             {% if not username %}disabled{% endif %}
-            class="w-full inline-flex items-center justify-between rounded-lg px-4 py-3 font-medium shadow
+            
+            class="w-full flex flex-col items-start text-left rounded-lg px-4 py-3 shadow
                    {% if username %}
                      bg-indigo-600 text-white hover:bg-indigo-500
                    {% else %}
                      bg-slate-700 text-slate-400 cursor-not-allowed
                    {% endif %}"
           >
-            <span>Timed (2:00)</span>
-            <span class="text-xs opacity-90">Rack up points</span>
+            <span class="font-medium">Timed (2:00)</span>
+            <span class="text-xs opacity-90 font-normal">Rack up points to join the leaderboard</span>
           </button>
         </form>
       </div>

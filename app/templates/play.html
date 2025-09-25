@@ -196,6 +196,7 @@
       {% else %}
         <form method="post" action="{{ guess_action or url_for('main.guess') }}" class="grid gap-3">
           <input type="hidden" name="revealed" value="{{ revealed }}" />
+            
           <input
             type="text"
             name="guess"
@@ -298,35 +299,33 @@
 
 {% if mode == 'daily' %}
 <script>
-(function () {
-  // No Jinja in JS → silences VS Code diagnostics
-  var url = "/cheat-mark";
+  (function () {
+    // IMPORTANT: include ?mode=daily so the server sets the flag
+    const url = "{{ url_for('main.cheat_mark') }}?mode=daily";
 
-  function markCheated() {
-    try {
-      if (navigator.sendBeacon) {
-        var body = new URLSearchParams();
-        body.append("mode", "daily");
-        var blob = new Blob([body.toString()], {
-          type: "application/x-www-form-urlencoded;charset=UTF-8"
-        });
-        navigator.sendBeacon(url, blob);
-        return;
+    // Mark if user switches tab or backgrounds the app
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) {
+        try {
+          navigator.sendBeacon(url);
+        } catch (e) {
+          fetch(url, { method: 'POST', keepalive: true });
+        }
       }
-    } catch (e) { /* ignore */ }
+    }, { once: false });
 
-    try {
-      fetch(url + "?mode=daily", { method: "POST", keepalive: true });
-    } catch (e) { /* ignore */ }
-  }
-
-  document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden") {
-      markCheated();
-    }
-  });
-})();
+    // Mark if they copy (optional — keep if you like)
+    document.addEventListener('copy', function () {
+      try {
+        navigator.sendBeacon(url);
+      } catch (e) {
+        fetch(url, { method: 'POST', keepalive: true });
+      }
+    }, { once: true });
+  })();
 </script>
+
+
 {% endif %}
 
 

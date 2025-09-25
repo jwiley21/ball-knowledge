@@ -2,20 +2,61 @@
 {% block title %}Result · {{ APP_NAME or "Ball Knowledge" }}{% endblock %}
 
 {% block content %}
-<div class="mx-auto max-w-screen-sm pt-2">
-  <section class="bg-[var(--color-card-bg)] text-[var(--color-card-text)] rounded-xl shadow-lg p-8 text-center">
-    <h2 class="text-2xl font-bold mb-2 text-[var(--color-card-text)]">Nice!</h2>
-    <p class="text-[var(--color-subtle-text)] mb-6">
-      You scored <span class="font-semibold text-[var(--color-card-text)]">{{ score }}</span> points.<br/>
-      The player was <span class="font-semibold text-[var(--color-card-text)]">{{ answer }}</span>.
-    </p>
-    <div class="flex justify-center gap-3">
+<div class="mx-auto max-w-screen-sm px-3 pt-6 pb-[max(4rem,env(safe-area-inset-bottom))]">
+
+  {% set is_cheated = cheated|default(false) %}
+
+  <!-- Final score pill (adds a red CHEATED tag when flagged) -->
+  <div class="w-full flex justify-center">
+    <div class="inline-flex items-center gap-3 rounded-full border border-emerald-800 bg-emerald-900/60 backdrop-blur-sm px-5 py-2.5 text-emerald-300 text-base shadow">
+      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+        <path d="M10 2a8 8 0 100 16 8 8 0 000-16Zm1 5a1 1 0 10-2 0v3.586l-1.293 1.293a1 1 0 101.414 1.414l1.586-1.586A2 2 0 0011 10V7Z"/>
+      </svg>
+      <span class="font-medium">Final Score:</span>
+      <span class="font-bold">{{ score or 0 }}</span>
+
+      {% if is_cheated %}
+        <span class="inline-flex items-center gap-1 rounded-full border border-rose-800 bg-rose-900/60 px-2 py-0.5 text-rose-300 text-xs">
+          <span class="inline-block h-1.5 w-1.5 rounded-full bg-rose-400"></span>
+          CHEATED
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Card -->
+  <section class="mt-6">
+    <div class="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-xl shadow-lg p-6 text-center">
+      {% if is_cheated %}
+        <h2 class="text-xl font-semibold text-[var(--color-card-text)]">Hmmmm...</h2>
+        <p class="mt-2 text-sm text-[var(--color-subtle-text)]">
+          We detected a tab/app switch during a guess. Your daily result was recorded
+          for <span class="font-medium text-[var(--color-card-text)]">{{ answer }}</span> but marked as
+          <span class="text-rose-300 font-medium">cheated</span> on today’s leaderboard.
+        </p>
+      {% else %}
+        <h2 class="text-xl font-semibold text-[var(--color-card-text)]">Nice!</h2>
+        <p class="mt-2 text-sm text-[var(--color-subtle-text)]">
+          The player was <span class="font-medium text-[var(--color-card-text)]">{{ answer }}</span>. See how you stack up on the leaderboard.
+        </p>
+      {% endif %}
+
+      <div class="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
         <a
-        href="{{ url_for('main.leaderboards') }}"
-        class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white shadow hover:bg-indigo-500">
-        View Leaderboards
+          href="{{ url_for('main.leaderboards', tab='daily') }}"
+          class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white shadow hover:bg-indigo-500">
+        
+          View Today’s Leaderboard
         </a>
+        <a
+          href="{{ url_for('main.landing') }}"
+          class="inline-flex items-center justify-center rounded-lg bg-white/10 px-4 py-2.5 font-medium text-white shadow-sm hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--color-background)] focus:ring-[var(--color-accent-focus-ring)] transition-colors"
+        >
+          Back to Game Modes
+        </a>
+      </div>
     </div>
   </section>
+
 </div>
 {% endblock %}
