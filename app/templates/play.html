@@ -300,31 +300,51 @@
 {% if mode == 'daily' %}
 <script>
   (function () {
-    // IMPORTANT: include ?mode=daily so the server sets the flag
     const url = "{{ url_for('main.cheat_mark') }}?mode=daily";
 
-    // Mark if user switches tab or backgrounds the app
-    document.addEventListener('visibilitychange', function () {
-      if (document.hidden) {
-        try {
-          navigator.sendBeacon(url);
-        } catch (e) {
-          fetch(url, { method: 'POST', keepalive: true });
-        }
-      }
-    }, { once: false });
+    // Arm cheat detection only after clear user interaction to reduce false positives
+    let cheatArmed = false;
+    let cheatSent = false;
+    let hiddenTimer = null;
 
-    // Mark if they copy (optional — keep if you like)
-    document.addEventListener('copy', function () {
+    // Any typing or clicking anywhere in the game area arms detection
+    document.addEventListener('keydown', () => { cheatArmed = true; }, { once: true });
+    const guessInput = document.getElementById('guessInput');
+    if (guessInput) {
+      guessInput.addEventListener('input', () => { cheatArmed = true; }, { once: true });
+    }
+
+    function sendCheat() {
+      if (cheatSent) return;
+      cheatSent = true;
       try {
         navigator.sendBeacon(url);
       } catch (e) {
         fetch(url, { method: 'POST', keepalive: true });
       }
+    }
+
+    // Mark if user backgrounds the tab for more than a short threshold
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) {
+        if (!cheatArmed) return; // ignore before any interaction
+        // debounce: only mark if hidden for > 1.5s
+        hiddenTimer = setTimeout(() => {
+          if (document.hidden) sendCheat();
+        }, 1500);
+      } else if (hiddenTimer) {
+        clearTimeout(hiddenTimer);
+        hiddenTimer = null;
+      }
+    }, { once: false });
+
+    // Optional: mark on copy only after interaction
+    document.addEventListener('copy', function () {
+      if (!cheatArmed) return;
+      sendCheat();
     }, { once: true });
   })();
-</script>
-
+  </script>
 
 {% endif %}
 

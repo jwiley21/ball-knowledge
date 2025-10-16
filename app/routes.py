@@ -127,7 +127,7 @@ def _get_suggest_population() -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     if supabase:
         try:
-            resp = supabase.table("players").select("full_name, position").execute()
+            resp = supabase.table("v_players_eligible").select("full_name, position").execute()
             rows = getattr(resp, "data", []) or []
             out = [(r["full_name"], r.get("position") or "") for r in rows if r.get("full_name")]
         except Exception:
@@ -155,7 +155,7 @@ def _db_player_bundle(today_str: str) -> dict:
 
     # 2) If missing, choose a random player id in Python and persist the daily_game row
     if not pid:
-        presp = supabase.table("players").select("id").limit(5000).execute()
+        presp = supabase.table("v_players_eligible").select("id").limit(5000).execute()
         pids = [r["id"] for r in (getattr(presp, "data", None) or [])]
         if not pids:
             raise RuntimeError("No players available in DB to choose daily game.")
@@ -165,7 +165,7 @@ def _db_player_bundle(today_str: str) -> dict:
 
     # 3) Fetch player meta (INCLUDE college)
     meta = (
-        supabase.table("players")
+        supabase.table("v_players_eligible")
         .select("id,full_name,player_slug,position,college")
         .eq("id", pid)
         .limit(1)
@@ -400,7 +400,7 @@ def play():
 def _db_player_bundle_for_id(pid) -> dict:
     """Build a bundle for a specific player id (used by Practice)."""
     meta = (
-        supabase.table("players")
+        supabase.table("v_players_eligible")
         .select("id,full_name,player_slug,position,college")
         .eq("id", pid)
         .limit(1)
@@ -443,7 +443,7 @@ def _get_random_player_id() -> int | None:
     """Pick a random player id from DB or None if unavailable."""
     if not supabase:
         return None
-    presp = supabase.table("players").select("id").limit(5000).execute()
+    presp = supabase.table("v_players_eligible").select("id").limit(5000).execute()
     pids = [r["id"] for r in (getattr(presp, "data", None) or [])]
     if not pids:
         return None
@@ -1117,7 +1117,7 @@ def practice_giveup():
                 answer = p.get("full_name", "Unknown")
         elif pid:
             meta = (
-                supabase.table("players")
+                supabase.table("v_players_eligible")
                 .select("full_name")
                 .eq("id", pid)
                 .limit(1)
@@ -1487,12 +1487,32 @@ def debug_timed_save():
         return {"ok": False, "err": str(e)}
 
 
-# Very primative and lose cheat detection, if user leaves tab during daily game, will be flagged
+# Very primitive cheat detection: mark only after actual gameplay starts.
+# We only set the flag if:
+#  - the request indicates daily mode, AND
+#  - the session is for today, AND
+#  - the user has progressed beyond initial state (revealed > 1 or used any hint)
 @bp.post("/cheat-mark")
 def cheat_mark():
-    # Only mark for DAILY games; ignore practice/timed
-    m = request.form.get("mode") or request.args.get("mode") or ""
-    if m.lower() == "daily":
-        session["cheated_today"] = True
-    return jsonify(ok=True)
+    m = (request.form.get("mode") or request.args.get("mode") or "").lower()
+    if m != "daily":
+        return jsonify(ok=True)
 
+    # Ensure it's the same ET day as the current session
+    today_et = str(get_today_et())
+    if session.get("last_game_date") != today_et:
+        return jsonify(ok=True)
+
+    # Consider the game "in progress" only after a wrong guess (revealed > 1)
+    # or after the user has purchased any hint.
+    try:
+        revealed = int(session.get("revealed", 1) or 1)
+    except Exception:
+        revealed = 1
+    hints_used = session.get("hints_used", []) or []
+    in_progress = (revealed > 1) or bool(hints_used)
+
+    if in_progress:
+        session["cheated_today"] = True
+
+    return jsonify(ok=True)

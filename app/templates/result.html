@@ -3,10 +3,10 @@
 
 {% block content %}
 <div class="mx-auto max-w-screen-sm px-3 pt-6 pb-[max(4rem,env(safe-area-inset-bottom))]">
-
+<!--
   {% set is_cheated = cheated|default(false) %}
 
-  <!-- Final score pill (adds a red CHEATED tag when flagged) -->
+  Final score pill (adds a red CHEATED tag when flagged)
   <div class="w-full flex justify-center">
     <div class="inline-flex items-center gap-3 rounded-full border border-emerald-800 bg-emerald-900/60 backdrop-blur-sm px-5 py-2.5 text-emerald-300 text-base shadow">
       <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
@@ -24,7 +24,7 @@
     </div>
   </div>
 
-  <!-- Card -->
+   Card -->
   <section class="mt-6">
     <div class="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-xl shadow-lg p-6 text-center">
       {% if is_cheated %}
