@@ -1,5 +1,9 @@
 # Ball Knowledge
 
+Play here: https://ball-knowledge-ae9r.onrender.com/
+
+(might take a minute to load up as its hosted for free)
+
 Daily NFL player guessing game (Flask) plus an AI‑assisted CLI that consumes a public API. This repo now includes:
 
 - Web app for the daily guessing game (unchanged functionality)

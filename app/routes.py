@@ -1487,32 +1487,11 @@ def debug_timed_save():
         return {"ok": False, "err": str(e)}
 
 
-# Very primitive cheat detection: mark only after actual gameplay starts.
-# We only set the flag if:
-#  - the request indicates daily mode, AND
-#  - the session is for today, AND
-#  - the user has progressed beyond initial state (revealed > 1 or used any hint)
+# Very primative and lose cheat detection, if user leaves tab during daily game, will be flagged
 @bp.post("/cheat-mark")
 def cheat_mark():
-    m = (request.form.get("mode") or request.args.get("mode") or "").lower()
-    if m != "daily":
-        return jsonify(ok=True)
-
-    # Ensure it's the same ET day as the current session
-    today_et = str(get_today_et())
-    if session.get("last_game_date") != today_et:
-        return jsonify(ok=True)
-
-    # Consider the game "in progress" only after a wrong guess (revealed > 1)
-    # or after the user has purchased any hint.
-    try:
-        revealed = int(session.get("revealed", 1) or 1)
-    except Exception:
-        revealed = 1
-    hints_used = session.get("hints_used", []) or []
-    in_progress = (revealed > 1) or bool(hints_used)
-
-    if in_progress:
+    # Only mark for DAILY games; ignore practice/timed
+    m = request.form.get("mode") or request.args.get("mode") or ""
+    if m.lower() == "daily":
         session["cheated_today"] = True
-
     return jsonify(ok=True)
