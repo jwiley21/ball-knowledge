@@ -300,27 +300,39 @@
 {% if mode == 'daily' %}
 <script>
   (function () {
-    // IMPORTANT: include ?mode=daily so the server sets the flag
     const url = "{{ url_for('main.cheat_mark') }}?mode=daily";
 
-    // Mark if user switches tab or backgrounds the app
+    // Flag normal in-app navigations (form submits, button clicks) so we don't mark as cheating
+    window.__bk_inAppNav = false;
+    function markInApp() { window.__bk_inAppNav = true; }
+    document.addEventListener('submit', markInApp, true);
+    document.addEventListener('click', function (e) {
+      const el = e.target.closest('button, [type=submit], a, [formaction]');
+      if (el) markInApp();
+    }, true);
+
+    let cheatTimer = null;
+    function sendCheatMark() {
+      if (window.__bk_inAppNav) return; // ignore normal page navigations
+      try { navigator.sendBeacon(url); }
+      catch (e) { try { fetch(url, { method: 'POST', keepalive: true }); } catch (_) {} }
+    }
+
+    // Defer marking for a short period to avoid false positives during fast navigations
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) {
-        try {
-          navigator.sendBeacon(url);
-        } catch (e) {
-          fetch(url, { method: 'POST', keepalive: true });
-        }
+        // Wait a bit; if the user quickly returns or it's an internal nav, do nothing
+        cheatTimer = setTimeout(sendCheatMark, 1500);
+      } else {
+        if (cheatTimer) { clearTimeout(cheatTimer); cheatTimer = null; }
       }
     }, { once: false });
 
-    // Mark if they copy (optional – keep if you like)
+    // Optional: copying marks as cheating (kept as-is)
     document.addEventListener('copy', function () {
-      try {
-        navigator.sendBeacon(url);
-      } catch (e) {
-        fetch(url, { method: 'POST', keepalive: true });
-      }
+      // Only mark if they copied while staying on page (not during nav)
+      if (window.__bk_inAppNav) return;
+      sendCheatMark();
     }, { once: true });
   })();
 </script>
