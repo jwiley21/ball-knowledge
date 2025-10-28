@@ -274,22 +274,26 @@ def landing():
 
             # Case-insensitive availability + reservation
             if supabase:
-                chk = (
-                    supabase.table("users")
-                    .select("id,username")
-                    .ilike("username", proposed)
-                    .maybe_single()
-                    .execute()
-                )
-                row = getattr(chk, "data", None)
-                if row and (row.get("username", "").lower() == proposed.lower()):
-                    flash("That username is already taken. Try another.")
-                    return redirect(url_for("main.landing"))
                 try:
-                    supabase.table("users").insert({"username": proposed}).execute()
+                    chk = (
+                        supabase.table("users")
+                        .select("id,username")
+                        .ilike("username", proposed)
+                        .maybe_single()
+                        .execute()
+                    )
+                    row = getattr(chk, "data", None)
+                    if row and (row.get("username", "").lower() == proposed.lower()):
+                        flash("That username is already taken. Try another.")
+                        return redirect(url_for("main.landing"))
+                    try:
+                        supabase.table("users").insert({"username": proposed}).execute()
+                    except Exception:
+                        flash("That username is already taken. Try another.")
+                        return redirect(url_for("main.landing"))
                 except Exception:
-                    flash("That username is already taken. Try another.")
-                    return redirect(url_for("main.landing"))
+                    current_app.logger.exception("Username availability check failed; continuing in local session mode")
+                    flash("Couldn’t reach the database right now. Using a local username.")
 
             session.permanent = True
             session["username"] = proposed
