@@ -329,6 +329,7 @@ def play():
         session["hints_used"] = []
         session.pop("suggestions", None)
         session.pop("cheated_today", None)
+        session.pop("solved_today", None)  # Clear previous day's completion status
 
     username = session.get("username")
     username_locked = bool(session.get("username_locked"))
